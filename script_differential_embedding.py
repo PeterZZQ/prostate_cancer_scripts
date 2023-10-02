@@ -211,28 +211,34 @@ kth_dist = np.take_along_axis(pdist_12wk, knn_index[:,None], axis = 1)
 
 
 x_diffs_12wk = []
+counts_stim_12wk_mapped = []
 for celli in range(pdist_12wk.shape[0]):
     idx = pdist_12wk[celli,:] <= kth_dist[celli,0]
     x_perturb = np.mean(counts_stim_12wk[idx,:], axis = 0)
-    x_orig = counts_ctrl_18wk[[celli],:]
+    x_orig = counts_ctrl_12wk[[celli],:]
     x_diff = x_perturb - x_orig
     x_diffs_12wk.append(x_diff)
+    counts_stim_12wk_mapped.append(x_perturb[None,:])
 
 x_diffs_12wk = np.concatenate(x_diffs_12wk, axis = 0)
+counts_stim_12wk_mapped = np.concatenate(counts_stim_12wk_mapped, axis = 0)
 
 K = 20
 knn_index = np.argpartition(pdist_18wk, kth = 20-1, axis = 1)[:, (K-1)]
 kth_dist = np.take_along_axis(pdist_18wk, knn_index[:,None], axis = 1)
 
 x_diffs_18wk = []
+counts_stim_18wk_mapped = []
 for celli in range(pdist_18wk.shape[0]):
     idx = pdist_18wk[celli,:] <= kth_dist[celli,0]
     x_perturb = np.mean(counts_stim_18wk[idx,:], axis = 0)
     x_orig = counts_ctrl_18wk[[celli],:]
     x_diff = x_perturb - x_orig
     x_diffs_18wk.append(x_diff)
+    counts_stim_18wk_mapped.append(x_perturb[None,:])
 
 x_diffs_18wk = np.concatenate(x_diffs_18wk, axis = 0)
+counts_stim_18wk_mapped = np.concatenate(counts_stim_18wk_mapped, axis = 0)
 
 # In[]
 x_pca_diffs_12wk = PCA(n_components = 30).fit_transform(StandardScaler().fit_transform(x_diffs_12wk))
@@ -337,4 +343,66 @@ plot_latent(x_umap_diffs_18wk, annos = np.exp(x_diffs_18wk[:, adata_seurat.var.i
 # sc.pl.umap(adata_diffs_12wk, color = "seurat_celltypes")
 
 
+# In[]
+# Check the change of proliferation marker genes "Mki67" and "Pcna"
+# x_diffs_12wk & meta_ctrl_12wk
+plt.rcParams["font.size"] = 15
+luminal_idx_12wk = meta_ctrl_12wk["seurat_celltypes"].isin(["Luminal 1"]).values.squeeze()
+luminal_idx_18wk = meta_ctrl_18wk["seurat_celltypes"].isin(["Luminal 1"]).values.squeeze()
+mki67_idx = np.where(adata_seurat.var.index == "Mki67")[0][0]
+pcna_idx = np.where(adata_seurat.var.index == "Pcna")[0][0]
+
+fig = plt.figure(figsize = (14,7))
+ax = fig.subplots(nrows = 1, ncols = 2)
+ax[0].scatter(counts_ctrl_12wk[luminal_idx_12wk, mki67_idx], counts_stim_12wk_mapped[luminal_idx_12wk, mki67_idx], c = "r", label = "Mki67 (12wk)", s = 2)
+ax[0].scatter(counts_ctrl_18wk[luminal_idx_18wk, mki67_idx], counts_stim_18wk_mapped[luminal_idx_18wk, mki67_idx], c = "b", label = "Mki67 (18wk)", s = 2)
+ax[0].plot(np.arange(0, 4, 0.1), np.arange(0, 4, 0.1), "g--")
+ax[0].set_xlim([0, 4])
+ax[0].set_ylim([0, 4])
+ax[0].legend()
+ax[0].set_xlabel("PbCre(+/-),Pten(-/-),P53(-/-)")
+ax[0].set_ylabel("PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)")
+ax[0].set_title("Mki67")
+
+ax[1].scatter(counts_ctrl_12wk[luminal_idx_12wk, pcna_idx], counts_stim_12wk_mapped[luminal_idx_12wk, pcna_idx], c = "r", label = "Pcna (12wk)", s = 2)
+ax[1].scatter(counts_ctrl_18wk[luminal_idx_18wk, pcna_idx], counts_stim_18wk_mapped[luminal_idx_18wk, pcna_idx], c = "b", label = "Pcna (18wk)", s = 2)
+ax[1].plot(np.arange(0, 4, 0.1), np.arange(0, 4, 0.1), "g--")
+ax[1].set_xlim([0, 4])
+ax[1].set_ylim([0, 4])
+ax[1].legend()
+ax[1].set_xlabel("PbCre(+/-),Pten(-/-),P53(-/-)")
+ax[1].set_ylabel("PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)")
+ax[1].set_title("Pcna")
+plt.suptitle("Log-normalized counts (proliferation marker)")
+fig.savefig("proliferation_marker_luminal.png", bbox_inches = "tight")
+
+plt.rcParams["font.size"] = 15
+luminal_idx_12wk = meta_ctrl_12wk["seurat_celltypes"].isin(["Basal"]).values.squeeze()
+luminal_idx_18wk = meta_ctrl_18wk["seurat_celltypes"].isin(["Basal"]).values.squeeze()
+mki67_idx = np.where(adata_seurat.var.index == "Mki67")[0][0]
+pcna_idx = np.where(adata_seurat.var.index == "Pcna")[0][0]
+
+fig = plt.figure(figsize = (14,7))
+ax = fig.subplots(nrows = 1, ncols = 2)
+ax[0].scatter(counts_ctrl_12wk[luminal_idx_12wk, mki67_idx], counts_stim_12wk_mapped[luminal_idx_12wk, mki67_idx], c = "r", label = "Mki67 (12wk)", s = 2)
+ax[0].scatter(counts_ctrl_18wk[luminal_idx_18wk, mki67_idx], counts_stim_18wk_mapped[luminal_idx_18wk, mki67_idx], c = "b", label = "Mki67 (18wk)", s = 2)
+ax[0].plot(np.arange(0, 4, 0.1), np.arange(0, 4, 0.1), "g--")
+ax[0].set_xlim([0, 4])
+ax[0].set_ylim([0, 4])
+ax[0].legend()
+ax[0].set_xlabel("PbCre(+/-),Pten(-/-),P53(-/-)")
+ax[0].set_ylabel("PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)")
+ax[0].set_title("Mki67")
+
+ax[1].scatter(counts_ctrl_12wk[luminal_idx_12wk, pcna_idx], counts_stim_12wk_mapped[luminal_idx_12wk, pcna_idx], c = "r", label = "Pcna (12wk)", s = 2)
+ax[1].scatter(counts_ctrl_18wk[luminal_idx_18wk, pcna_idx], counts_stim_18wk_mapped[luminal_idx_18wk, pcna_idx], c = "b", label = "Pcna (18wk)", s = 2)
+ax[1].plot(np.arange(0, 4, 0.1), np.arange(0, 4, 0.1), "g--")
+ax[1].set_xlim([0, 4])
+ax[1].set_ylim([0, 4])
+ax[1].legend()
+ax[1].set_xlabel("PbCre(+/-),Pten(-/-),P53(-/-)")
+ax[1].set_ylabel("PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)")
+ax[1].set_title("Pcna")
+plt.suptitle("Log-normalized counts (proliferation marker)")
+fig.savefig("proliferation_marker_basal.png", bbox_inches = "tight")
 # %%
