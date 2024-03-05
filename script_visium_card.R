@@ -14,11 +14,8 @@ gc()
 # 
 # # reference scRNA-seq
 # reference.obj <- LoadH5Seurat("Cell_Ranger_output/seurat_integrate.h5Seurat")
-# reference.obj <- RenameIdents(reference.obj, `0` = "Luminal", `1` = "Luminal", `2` = "Hillock epithelia (Basal)",
-#                                   `3` = "Club epithelia (Luminal)", `4` = "Macrophage (Myeloid, Total immune)", `5` = "Monocytes (Myeloid, Total immune)", 
-#                                   `6` = "Mesenchymal", `7` = "Spink1+ (Luminal)", `8` = "Basal", `9` = "Lymphoid (Total immune)",
-#                                   `10` = "SV", `11` = "Endothelial", `12` = "Luminal 2", `13` = "Luminal 3")
-# reference.obj <- reference.obj[,(reference.obj@active.ident!= "Luminal 3")&(reference.obj@active.ident!= "Luminal 2")]
+# reference.obj <- SetIdent(reference.obj, value = reference.obj@meta.data$annot)
+# reference.obj <- reference.obj[,reference.obj@active.ident!= "Other"]
 # 
 # # count spatial
 # counts_pp12 <- Assays(visium_pp12, slot = "Spatial")@counts
@@ -92,6 +89,22 @@ for(sample in names(counts_visium)){
   
   # Deconvolution using CARD
   CARD_sample <- CARD_deconvolution(CARD_object = CARD_sample)
+  scores.deconv <- CARD_sample@Proportion_CARD
+  # load scores of the other methods
+
+  # set the colors. Here, I just use the colors in the manuscript, if the color is not provided, the function will use default color in the package. 
+  # colors <- c("#FFD92F","#4DAF4A","#FCCDE5","#D9D9D9","#377EB8","#7FC97F","#BEAED4",
+  #     "#FDC086","#FFFF99","#386CB0")
+  # # colors = c("#FFD92F","#4DAF4A","#FCCDE5","#D9D9D9","#377EB8","#7FC97F","#BEAED4",
+  # #            "#FDC086","#FFFF99","#386CB0","#F0027F","#BF5B17","#666666","#1B9E77","#D95F02",
+  # #            "#7570B3","#E7298A","#66A61E","#E6AB02","#A6761D")
+  # # TOO MANY CELLS
+  # p1 <- CARD.visualize.pie(
+  #   proportion = scores.deconv,
+  #   spatial_location = CARD_sample@spatial_location,
+  #   colors = colors,
+  #     radius = 0.52) ### You can choose radius = NULL or your own radius number
+  # print(p1)
   deconv_scores[[sample]] <- CARD_sample@Proportion_CARD
   write.table(deconv_scores[[sample]], file = paste0("results_card/deconv_score_", sample, ".csv"), sep = "\t", quote = FALSE)
 }

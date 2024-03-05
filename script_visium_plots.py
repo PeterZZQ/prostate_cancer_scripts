@@ -2,63 +2,60 @@
 import numpy as np
 import scanpy as sc
 import pandas as pd
+import seaborn as sns
 from sklearn.metrics import pairwise_distances
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap, LogNorm
 
-def calc_dist_thr(loc, K):
-    D = pairwise_distances(loc)
-    knn_index = np.argpartition(D, kth = K-1, axis = 1)[:, (K-1)]
-    kth_dist = np.take_along_axis(D, knn_index[:,None], axis = 1)
-    # maximum knn distance as dist cut-off, change with K selection
-    dis_thr = np.max(kth_dist)
-    return dis_thr
+# Define the colormap from grey to white to purple
+colors = [(0.7, 0.7, 0.7), (1, 1, 1), (1, 0, 0)]  # Grey to White to Purple
+cmap_name = 'grey_to_white_to_purple'
+cmap_expr = LinearSegmentedColormap.from_list(cmap_name, colors)
 
-def save_commot_results(adata, lr_index_path, cci_path):
-    LR_pairs = []
-    cci_predict = []
-    for LR_pair in adata.obsp.keys():
-        LR_pairs.append(LR_pair)
-        cci_predict.append(adata.obsp[LR_pair].toarray()[None,:,:])
-    LR_pairs = np.array(LR_pairs)
-    cci_predict = np.concatenate(cci_predict, axis = 0)
-    print(cci_predict.shape)
-    print(LR_pairs)
-    np.savetxt(lr_index_path, LR_pairs, fmt = "%s")
-    np.save(cci_path, cci_predict)
+# # Create a colorbar to visualize the colormap
+# gradient = np.linspace(0, 1, 256).reshape(1, -1)
+# gradient = np.vstack((gradient, gradient))
+
+# fig, ax = plt.subplots(figsize=(6, 1))
+# ax.set_title('Grey to White to Purple Colormap')
+# ax.set_xticks([])
+# ax.set_yticks([])
+# ax.imshow(gradient, aspect='auto', cmap=cmap)
+
+# plt.show()
 
 result_dir = "results_seurat_visium/"
 # In[]
+# Read VISIUM data
 adata_pp12 = sc.read_visium(path = "spatial_data/Visium_python/225_PP12/", count_file = "filtered_feature_bc_matrix.h5", source_image_path = "spatial")
 adata_pp18 = sc.read_visium(path = "spatial_data/Visium_python/1687_PP18/", count_file = "filtered_feature_bc_matrix.h5", source_image_path = "spatial")
 adata_ppc12 = sc.read_visium(path = "spatial_data/Visium_python/1161_PPC/", count_file = "filtered_feature_bc_matrix.h5", source_image_path = "spatial")
 adata_ppc18 = sc.read_visium(path = "spatial_data/Visium_python/1660_PPC18/", count_file = "filtered_feature_bc_matrix.h5", source_image_path = "spatial")
-transfer_label_pp12 = pd.read_csv("spatial_data/Visium/transfer_labels_225_pp12.csv", index_col = 0, sep = " ")
-transfer_label_pp18 = pd.read_csv("spatial_data/Visium/transfer_labels_1687_pp18.csv", index_col = 0, sep = " ")
-transfer_label_ppc12 = pd.read_csv("spatial_data/Visium/transfer_labels_1161_ppc.csv", index_col = 0, sep = " ")
-transfer_label_ppc18 = pd.read_csv("spatial_data/Visium/transfer_labels_1660_ppc18.csv", index_col = 0, sep = " ")
-
-adata_pp12.obs["predict_label"] = transfer_label_pp12["predict.label"]
-adata_pp18.obs["predict_label"] = transfer_label_pp18["predict.label"]
-adata_ppc12.obs["predict_label"] = transfer_label_ppc12["predict.label"]
-adata_ppc18.obs["predict_label"] = transfer_label_ppc18["predict.label"]
-
 adata_pp12.obsm["spatial"] = adata_pp12.obsm["spatial"].astype(np.float64)
 adata_pp18.obsm["spatial"] = adata_pp18.obsm["spatial"].astype(np.float64)
 adata_ppc12.obsm["spatial"] = adata_ppc12.obsm["spatial"].astype(np.float64)
 adata_ppc18.obsm["spatial"] = adata_ppc18.obsm["spatial"].astype(np.float64)
 
-adata_pp12.var_names_make_unique()
-adata_pp18.var_names_make_unique()
-adata_ppc12.var_names_make_unique()
-adata_ppc18.var_names_make_unique()
-
+# Load Seurat transferred labels
+transfer_label_pp12 = pd.read_csv("spatial_data/Visium/transfer_labels_225_pp12.csv", index_col = 0, sep = " ")
+transfer_label_pp18 = pd.read_csv("spatial_data/Visium/transfer_labels_1687_pp18.csv", index_col = 0, sep = " ")
+transfer_label_ppc12 = pd.read_csv("spatial_data/Visium/transfer_labels_1161_ppc.csv", index_col = 0, sep = " ")
+transfer_label_ppc18 = pd.read_csv("spatial_data/Visium/transfer_labels_1660_ppc18.csv", index_col = 0, sep = " ")
+adata_pp12.obs["predict_label"] = transfer_label_pp12["predict.label"]
+adata_pp18.obs["predict_label"] = transfer_label_pp18["predict.label"]
+adata_ppc12.obs["predict_label"] = transfer_label_ppc12["predict.label"]
+adata_ppc18.obs["predict_label"] = transfer_label_ppc18["predict.label"]
 adata_pp12.obs.loc[adata_pp12.obs["predict_label"] == "SV, Spink1+", "predict_label"] = "SV"
 adata_pp18.obs.loc[adata_pp18.obs["predict_label"] == "SV, Spink1+", "predict_label"] = "SV"
 adata_ppc12.obs.loc[adata_ppc12.obs["predict_label"] == "SV, Spink1+", "predict_label"] = "SV"
 adata_ppc18.obs.loc[adata_ppc18.obs["predict_label"] == "SV, Spink1+", "predict_label"] = "SV"
+adata_pp12.obs.loc[adata_pp12.obs["predict_label"] == "Luminal 1", "predict_label"] = "Luminal"
+adata_pp18.obs.loc[adata_pp18.obs["predict_label"] == "Luminal 1", "predict_label"] = "Luminal"
+adata_ppc12.obs.loc[adata_ppc12.obs["predict_label"] == "Luminal 1", "predict_label"] = "Luminal"
+adata_ppc18.obs.loc[adata_ppc18.obs["predict_label"] == "Luminal 1", "predict_label"] = "Luminal"
 
 category = ['Basal', 'Club epithelia (Luminal)', 'Endothelial',
-            'Hillock epithelia (Basal)', 'Luminal 1',
+            'Hillock epithelia (Basal)', 'Luminal',
             'Lymphoid (Total immune)', 'Macrophage (Myeloid, Total immune)',
             'Mesenchymal', 'Monocytes (Myeloid, Total immune)', 'SV',
             'Spink1+ (Luminal)']
@@ -67,37 +64,83 @@ adata_pp12.obs["predict_label"] = pd.Categorical(adata_pp12.obs["predict_label"]
 adata_pp18.obs["predict_label"] = pd.Categorical(adata_pp18.obs["predict_label"], categories=category)
 adata_ppc12.obs["predict_label"] = pd.Categorical(adata_ppc12.obs["predict_label"], categories=category)
 adata_ppc18.obs["predict_label"] = pd.Categorical(adata_ppc18.obs["predict_label"], categories=category)
+# Make unique var names
+adata_pp12.var_names_make_unique()
+adata_pp18.var_names_make_unique()
+adata_ppc12.var_names_make_unique()
+adata_ppc18.var_names_make_unique()
+
+# In[]
+# preprocessing
+sc.pp.normalize_total(adata_pp12, inplace=True, target_sum = 100000)
+sc.pp.log1p(adata_pp12)
+adata_pp12.raw = adata_pp12
+# sc.pp.highly_variable_genes(adata_pp12, flavor="seurat", n_top_genes=2000)
+sc.pp.normalize_total(adata_pp18, inplace=True, target_sum = 100000)
+sc.pp.log1p(adata_pp18)
+adata_pp18.raw = adata_pp18
+sc.pp.normalize_total(adata_ppc12, inplace=True, target_sum = 100000)
+sc.pp.log1p(adata_ppc12)
+adata_ppc12.raw = adata_ppc12
+sc.pp.normalize_total(adata_ppc18, inplace=True, target_sum = 100000)
+sc.pp.log1p(adata_ppc18)
+adata_ppc18.raw = adata_ppc18
+
+# In[]
+# # Plot the transferred labels
+# fig = plt.figure(figsize = (12,7))
+# ax = fig.add_subplot()
+# sc.pl.spatial(adata_pp12, img_key = "hires", color = "predict_label", ax = ax)
+# fig.savefig(result_dir + f"seurat_transfer_pp12.pdf", bbox_inches = "tight")
+# fig.savefig(result_dir + f"seurat_transfer_pp12.png", bbox_inches = "tight")
+# fig = plt.figure(figsize = (12,7))
+# ax = fig.add_subplot()
+# sc.pl.spatial(adata_pp18, img_key = "hires", color = "predict_label", ax = ax)
+# fig.savefig(result_dir + f"seurat_transfer_pp18.pdf", bbox_inches = "tight")
+# fig.savefig(result_dir + f"seurat_transfer_pp18.png", bbox_inches = "tight")
+# fig = plt.figure(figsize = (12,7))
+# ax = fig.add_subplot()
+# sc.pl.spatial(adata_ppc12, img_key = "hires", color = "predict_label", ax = ax)
+# fig.savefig(result_dir + f"seurat_transfer_ppc12.pdf", bbox_inches = "tight")
+# fig.savefig(result_dir + f"seurat_transfer_ppc12.png", bbox_inches = "tight")
+# fig = plt.figure(figsize = (12,7))
+# ax = fig.add_subplot()
+# sc.pl.spatial(adata_ppc18, img_key = "hires", color = "predict_label", ax = ax)
+# fig.savefig(result_dir + f"seurat_transfer_ppc18.pdf", bbox_inches = "tight")
+# fig.savefig(result_dir + f"seurat_transfer_ppc18.png", bbox_inches = "tight")
 
 
 # In[]
-fig = plt.figure(figsize = (12,7))
-ax = fig.add_subplot()
-sc.pl.spatial(adata_pp12, img_key = "hires", color = "predict_label", ax = ax)
-fig.savefig(result_dir + f"seurat_transfer_pp12.pdf", bbox_inches = "tight")
-fig.savefig(result_dir + f"seurat_transfer_pp12.png", bbox_inches = "tight")
-fig = plt.figure(figsize = (12,7))
-ax = fig.add_subplot()
-sc.pl.spatial(adata_pp18, img_key = "hires", color = "predict_label", ax = ax)
-fig.savefig(result_dir + f"seurat_transfer_pp18.pdf", bbox_inches = "tight")
-fig.savefig(result_dir + f"seurat_transfer_pp18.png", bbox_inches = "tight")
-fig = plt.figure(figsize = (12,7))
-ax = fig.add_subplot()
-sc.pl.spatial(adata_ppc12, img_key = "hires", color = "predict_label", ax = ax)
-fig.savefig(result_dir + f"seurat_transfer_ppc12.pdf", bbox_inches = "tight")
-fig.savefig(result_dir + f"seurat_transfer_ppc12.png", bbox_inches = "tight")
-fig = plt.figure(figsize = (12,7))
-ax = fig.add_subplot()
-sc.pl.spatial(adata_ppc18, img_key = "hires", color = "predict_label", ax = ax)
-fig.savefig(result_dir + f"seurat_transfer_ppc18.pdf", bbox_inches = "tight")
-fig.savefig(result_dir + f"seurat_transfer_ppc18.png", bbox_inches = "tight")
-
-
-# In[]
+# Extract the interest genes
 interest_genes = pd.read_csv("spatial_data/interest_genes.csv", index_col = 0)
-gene_names =[x for x in interest_genes["Genes"] if (x != "Cxcl11") & (x != "Tnfa") & (x != "Tgfb") & (x != "Il12")]
+gene_names =[x for x in interest_genes["Genes"] if (x != "Cxcl11") & (x != "Tnfa") & (x != "Tgfb") & (x != "Il12") & (x != "Pd1") & (x != "Tim3")]
 
-sc.pl.spatial(adata_pp12, img_key="hires", color = gene_names, save = "visium_interest_genes.pdf")
+# SUPER_MAGMA = LinearSegmentedColormap.from_list('super_magma', colors=['#e0e0e0', '#dedede', '#fff68f', '#ffec8b', '#ffc125', '#ee7600', '#ee5c42', '#cd3278', '#c71585', '#68228b'], N=500)
+SUPER_MAGMA = LinearSegmentedColormap.from_list('green_to_red', [(0, 0.7, 0), (1, 1, 1), (1, 0, 0), (0.5, 0, 0.5)], N=500)
 
+# plot the spatial expression of important genes
+for gene in gene_names:
+    fig = plt.figure(figsize = (20, 10))
+    ax = fig.subplots(nrows = 2, ncols = 2)
+
+    vmin = min(np.min(adata_pp12[:, gene].X), np.min(adata_ppc12[:, gene].X), np.min(adata_pp18[:, gene].X), np.min(adata_ppc18[:, gene].X))
+    vmax = max(np.max(adata_pp12[:, gene].X), np.max(adata_ppc12[:, gene].X), np.max(adata_pp18[:, gene].X), np.max(adata_ppc18[:, gene].X))
+
+    sc.pl.spatial(adata_pp12, img_key="hires", color = gene, save = None, ax = ax[0,0], show = False, vmin = vmin, vmax = vmax, color_map = SUPER_MAGMA)
+    sc.pl.spatial(adata_pp18, img_key="hires", color = gene, save = None, ax = ax[1,0], show = False, vmin = vmin, vmax = vmax, color_map = SUPER_MAGMA)
+    sc.pl.spatial(adata_ppc12, img_key="hires", color = gene, save = None, ax = ax[0,1], show = False, vmin = vmin, vmax = vmax, color_map = SUPER_MAGMA)
+    sc.pl.spatial(adata_ppc18, img_key="hires", color = gene, save = None, ax = ax[1,1], show = False, vmin = vmin, vmax = vmax, color_map = SUPER_MAGMA)
+    
+    fig.suptitle(gene, fontsize = 20)
+    ax[0,0].set_title("PP12")
+    ax[0,1].set_title("PP18")
+    ax[1,0].set_title("PPC12")
+    ax[1,1].set_title("PPC18")
+    fig.tight_layout()
+
+    fig.savefig(f"results_seurat_scrnaseq/figure_markers/important_genes/visium_{gene}.png", dpi = 200, bbox_inches = "tight")
+
+    
 
 # In[]
 # interest ligand-receptor pairs
@@ -285,6 +328,8 @@ ax[1,0].set_title("Mesenchymal-Luminal 1")
 ax[1,1].set_title("Mesenchymal-Mesenchymal")
 plt.tight_layout()
 fig.savefig(cci_dir + "cci_compare_12.pdf", bbox_inches = "tight")
+
+
 
 
 # %%

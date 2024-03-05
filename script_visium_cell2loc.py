@@ -49,26 +49,11 @@ adata_ppc18.var.index = adata_ppc18.var["gene_ids"].values
 # Load reference scRNA-seq data
 adata = sc.read_h5ad("Cell_Ranger_output/adata_seurat.h5ad")
 
-adata.obs["annotation"] = "other"
-adata.obs.loc[adata.obs["seurat_clusters"] == "0", "annotation"] = "Luminal 1"
-adata.obs.loc[adata.obs["seurat_clusters"] == "1", "annotation"] = "Luminal 1"
-adata.obs.loc[adata.obs["seurat_clusters"] == "2", "annotation"] = "Hillock epithelia (Basal)"
-adata.obs.loc[adata.obs["seurat_clusters"] == "3", "annotation"] = "Club epithelia (Luminal)"
-adata.obs.loc[adata.obs["seurat_clusters"] == "4", "annotation"] = "Macrophage (Myeloid, Total immune)"
-adata.obs.loc[adata.obs["seurat_clusters"] == "5", "annotation"] = "Monocytes (Myeloid, Total immune)"
-adata.obs.loc[adata.obs["seurat_clusters"] == "6", "annotation"] = "Mesenchymal"
-adata.obs.loc[adata.obs["seurat_clusters"] == "7", "annotation"] = "Spink1+ (Luminal)"
-adata.obs.loc[adata.obs["seurat_clusters"] == "8", "annotation"] = "Basal"
-adata.obs.loc[adata.obs["seurat_clusters"] == "9", "annotation"] = "Lymphoid (Total immune)"
-adata.obs.loc[adata.obs["seurat_clusters"] == "10", "annotation"] = "SV" # originally SV, Spink1+
-adata.obs.loc[adata.obs["seurat_clusters"] == "11", "annotation"] = "Endothelial"
-adata.obs.loc[adata.obs["seurat_clusters"] == "12", "annotation"] = "Luminal 2"
-adata.obs.loc[adata.obs["seurat_clusters"] == "13", "annotation"] = "Luminal 3"
-# Remove Luminal 2 and Luminal 3
-adata_ref = adata[(adata.obs["annotation"] != "Luminal 2") & (adata.obs["annotation"] != "Luminal 3"),:]
+# Remove Other
+adata_ref = adata[adata.obs["annot"] != "Other",:]
 adata_ref.var["SYMBOL"] = adata_ref.var.index.values
 adata_ref.var.index = adata_ref.var["gene_ids"].values
-adata_ref.obs["annotation"] = adata_ref.obs["annotation"].astype('category')
+adata_ref.obs["annot"] = adata_ref.obs["annot"].astype('category')
 
 # In[]
 # preprocessing
@@ -82,7 +67,7 @@ cell2location.models.RegressionModel.setup_anndata(adata=adata_ref,
                         # 10X reaction / sample / batch
                         batch_key='sample',
                         # cell type, covariate used for constructing signatures
-                        labels_key='annotation'
+                        labels_key='annot'
                        )
 
 # create the regression model
@@ -130,7 +115,7 @@ inf_aver.columns = adata_ref.uns['mod']['factor_names']
 
 # In[]
 # find shared genes and subset both anndata and reference signatures
-sample = "ppc18"
+sample = "pp12"
 if sample == "pp12":
     adata_vis = adata_pp12
 elif sample == "pp18":
@@ -174,7 +159,7 @@ mod.train(max_epochs=30000,
 
 # plot ELBO loss history during training, removing first 100 epochs from the plot
 mod.plot_history(1000)
-plt.legend(labels=['full data training']);
+plt.legend(labels=['full data training'])
 
 # In[]
 # In this section, we export the estimated cell abundance (summary of the posterior distribution).
@@ -196,7 +181,7 @@ mod.plot_QC()
 # In[]
 # Load data
 sample = "ppc18"
-N_cells_per_location = 30
+N_cells_per_location = 10
 detection_alpha = 20 
 adata_vis = sc.read_h5ad(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/sp.h5ad")
 
@@ -210,9 +195,34 @@ elif select == "mean":
 Wsf = adata_vis.obs[adata_vis.uns['mod']['factor_names']]
 # Use the maximum Wsf
 adata_vis.obs["max_posterior"] = Wsf.columns.values[np.argmax(Wsf.values, axis = 1)]
-adata_vis.obs["max_posterior"] = pd.Categorical(adata_vis.obs["max_posterior"], categories=adata_ref.obs["annotation"].cat.categories.values)
-adata_vis.obs["max_posterior"] = adata_vis.obs["max_posterior"].cat.rename_categories({"Luminal 1": "Luminal"})
+adata_vis.obs["max_posterior"] = pd.Categorical(adata_vis.obs["max_posterior"], categories=adata_ref.obs["annot"].cat.categories.values)
 
+
+# In[]
+# Now we use cell2location plotter that allows showing multiple cell types in one panel
+from cell2location.plt import plot_spatial
+
+# select up to 6 clusters
+clust_labels = ["Luminal", "Basal", "Luminal (Spink1+)", "Mesenchymal", "Macrophage"]
+clust_col = ['' + str(i) for i in clust_labels] # in case column names differ from labels
+
+with mpl.rc_context({'figure.figsize': (15, 15)}):
+    fig = plot_spatial(
+        adata=adata_vis,
+        # labels to show on a plot
+        color=clust_col, labels=clust_labels,
+        show_img=True,
+        # 'fast' (white background) or 'dark_background'
+        style='fast',
+        # limit color scale at 99.2% quantile of cell abundance
+        max_color_quantile=0.992,
+        # size of locations (adjust depending on figure size)
+        circle_diameter=6,
+        colorbar_position='right'
+    )
+
+
+# In[]
 fig = plt.figure(figsize = (12,7))
 ax = fig.add_subplot()
 sc.pl.spatial(adata_vis, img_key = "hires", color = "max_posterior", ax = ax)
@@ -221,13 +231,13 @@ fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detecti
 
 fig = plt.figure(figsize = (12,7))
 ax = fig.add_subplot()
-sc.pl.spatial(adata_vis, img_key = "hires", color = "Spink1+ (Luminal)", ax = ax)
+sc.pl.spatial(adata_vis, img_key = "hires", color = "Luminal (Spink1+)", ax = ax)
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_spink1.pdf", bbox_inches = "tight")
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_spink1.png", bbox_inches = "tight")
 
 fig = plt.figure(figsize = (12,7))
 ax = fig.add_subplot()
-sc.pl.spatial(adata_vis, img_key = "hires", color = "Luminal 1", ax = ax)
+sc.pl.spatial(adata_vis, img_key = "hires", color = "Luminal", ax = ax)
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Luminal.pdf", bbox_inches = "tight")
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Luminal.png", bbox_inches = "tight")
 
@@ -239,7 +249,7 @@ fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detecti
 
 fig = plt.figure(figsize = (12,7))
 ax = fig.add_subplot()
-sc.pl.spatial(adata_vis, img_key = "hires", color = "Club epithelia (Luminal)", ax = ax)
+sc.pl.spatial(adata_vis, img_key = "hires", color = "Club epithelia", ax = ax)
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Club_epithelia_(Luminal).pdf", bbox_inches = "tight")
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Club_epithelia_(Luminal).png", bbox_inches = "tight")
 
@@ -251,19 +261,13 @@ fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detecti
 
 fig = plt.figure(figsize = (12,7))
 ax = fig.add_subplot()
-sc.pl.spatial(adata_vis, img_key = "hires", color = "Hillock epithelia (Basal)", ax = ax)
-fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Hillock_epithelia_(Basal).pdf", bbox_inches = "tight")
-fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Hillock_epithelia_(Basal).png", bbox_inches = "tight")
-
-fig = plt.figure(figsize = (12,7))
-ax = fig.add_subplot()
-sc.pl.spatial(adata_vis, img_key = "hires", color = "Lymphoid (Total immune)", ax = ax)
+sc.pl.spatial(adata_vis, img_key = "hires", color = "Lymphoid", ax = ax)
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Lymphoid_(Total immune).pdf", bbox_inches = "tight")
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Lymphoid_(Total immune).png", bbox_inches = "tight")
 
 fig = plt.figure(figsize = (12,7))
 ax = fig.add_subplot()
-sc.pl.spatial(adata_vis, img_key = "hires", color = "Macrophage (Myeloid, Total immune)", ax = ax)
+sc.pl.spatial(adata_vis, img_key = "hires", color = "Macrophage", ax = ax)
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Macrophage_(Myeloid, Total immune).pdf", bbox_inches = "tight")
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Macrophage_(Myeloid, Total immune).png", bbox_inches = "tight")
 
@@ -275,7 +279,7 @@ fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detecti
 
 fig = plt.figure(figsize = (12,7))
 ax = fig.add_subplot()
-sc.pl.spatial(adata_vis, img_key = "hires", color = "Monocytes (Myeloid, Total immune)", ax = ax)
+sc.pl.spatial(adata_vis, img_key = "hires", color = "Monocytes", ax = ax)
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Monocytes (Myeloid, Total immune).pdf", bbox_inches = "tight")
 fig.savefig(result_dir + f"cell2loc_map_{sample}_{N_cells_per_location}_{detection_alpha}/{select}_Monocytes (Myeloid, Total immune).png", bbox_inches = "tight")
 
