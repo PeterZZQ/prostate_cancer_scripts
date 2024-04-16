@@ -44,7 +44,7 @@ prostate.intact <- RunUMAP(prostate.intact, reduction = "integrated.cca", dims =
 p1 <- DimPlot(prostate.intact, reduction = "umap.cca", group.by = c("sample", "cca_clusters"), combine = FALSE, label.size = 2)
 
 # save files
-seurat_dir <- "dataset/data_scrnaseq/seurat_integration/"
+seurat_dir <- "dataset/data_scrnaseq/"
 SaveH5Seurat(prostate.intact, filename = paste0(seurat_dir, "prostate_intact.h5Seurat"), overwrite = TRUE)
 meta.seurat <- prostate.intact@meta.data
 pca_cca.seurat <- prostate.intact@reductions$integrated.cca@cell.embeddings
@@ -54,88 +54,42 @@ write.table(pca_cca.seurat, file = paste0(seurat_dir, "cca_pca_intact.csv"), sep
 write.table(umap_cca.seurat, file = paste0(seurat_dir, "cca_umap_intact.csv"), sep = "\t", quote = FALSE)
 
 
-# 2. Transfer labels to the castrated dataset ----------------------------------
-# Load the query dataset: castrated dataset
-X_castrated <- Matrix::readMM(paste0(raw_dir, "X_castrated.mtx"))
-X_castrated <- as(t(as.matrix(X_castrated)), "dgCMatrix")
-meta_cells_castrated <- read.csv(paste0(raw_dir, "meta_castrated.csv"), sep = ",", row.names = 1)
-meta_genes_castrated <- read.csv(paste0(raw_dir, "gene_castrated.csv"), sep = ",", row.names = 1)
-colnames(X_castrated) <- rownames(meta_cells_castrated)
-rownames(X_castrated) <- rownames(meta_genes_castrated)
-# Create the Seurat object, two samples
-prostate.castrated <- CreateSeuratObject(counts = X_castrated, meta.data = meta_cells_castrated, assay = "RNA")
-prostate.castrated.pp <- prostate.castrated[,prostate.castrated$sample == "M1476-PP"]
-prostate.castrated.ppc <- prostate.castrated[,prostate.castrated$sample == "M1477-PPC"]
+# # 2. Transfer labels to the castrated dataset ----------------------------------
+# # Load the query dataset: castrated dataset
+# X_castrated <- Matrix::readMM(paste0(raw_dir, "X_castrated.mtx"))
+# X_castrated <- as(t(as.matrix(X_castrated)), "dgCMatrix")
+# meta_cells_castrated <- read.csv(paste0(raw_dir, "meta_castrated.csv"), sep = ",", row.names = 1)
+# meta_genes_castrated <- read.csv(paste0(raw_dir, "gene_castrated.csv"), sep = ",", row.names = 1)
+# colnames(X_castrated) <- rownames(meta_cells_castrated)
+# rownames(X_castrated) <- rownames(meta_genes_castrated)
+# # Create the Seurat object, two samples
+# prostate.castrated <- CreateSeuratObject(counts = X_castrated, meta.data = meta_cells_castrated, assay = "RNA")
+# prostate.castrated.pp <- prostate.castrated[,prostate.castrated$sample == "M1476-PP"]
+# prostate.castrated.ppc <- prostate.castrated[,prostate.castrated$sample == "M1477-PPC"]
 
-# Load the reference dataset: intact dataset at 18wk
-prostate.intact.pp18 <- prostate.intact[,prostate.intact$sample == "M1416-PP18"]
-prostate.intact.ppc18 <- prostate.intact[,prostate.intact$sample == "M1437-PPC18"]
+# # Load the reference dataset: intact dataset at 18wk
+# prostate.intact.pp18 <- prostate.intact[,prostate.intact$sample == "M1416-PP18"]
+# prostate.intact.ppc18 <- prostate.intact[,prostate.intact$sample == "M1437-PPC18"]
 
-# run label transfer: pp
-prostate.castrated.pp <- NormalizeData(prostate.castrated.pp)
-prostate.anchors <- FindTransferAnchors(reference = prostate.intact.pp18, query = prostate.castrated.pp, dims = 1:30, reference.reduction = "pca")
-predictions <- TransferData(anchorset = prostate.anchors, refdata = prostate.intact.pp18$seurat_clusters, dims = 1:30)
-prostate.castrated.pp <- AddMetaData(prostate.castrated.pp, metadata = predictions)
+# # run label transfer: pp
+# prostate.castrated.pp <- NormalizeData(prostate.castrated.pp)
+# prostate.anchors <- FindTransferAnchors(reference = prostate.intact.pp18, query = prostate.castrated.pp, dims = 1:30, reference.reduction = "pca")
+# predictions <- TransferData(anchorset = prostate.anchors, refdata = prostate.intact.pp18$seurat_clusters, dims = 1:30)
+# prostate.castrated.pp <- AddMetaData(prostate.castrated.pp, metadata = predictions)
 
-# run label transfer: ppc
-prostate.castrated.ppc <- NormalizeData(prostate.castrated.ppc)
-prostate.anchors <- FindTransferAnchors(reference = prostate.intact.ppc18, query = prostate.castrated.ppc, dims = 1:30, reference.reduction = "pca")
-predictions <- TransferData(anchorset = prostate.anchors, refdata = prostate.intact.ppc18$seurat_clusters, dims = 1:30)
-prostate.castrated.ppc <- AddMetaData(prostate.castrated.ppc, metadata = predictions)
+# # run label transfer: ppc
+# prostate.castrated.ppc <- NormalizeData(prostate.castrated.ppc)
+# prostate.anchors <- FindTransferAnchors(reference = prostate.intact.ppc18, query = prostate.castrated.ppc, dims = 1:30, reference.reduction = "pca")
+# predictions <- TransferData(anchorset = prostate.anchors, refdata = prostate.intact.ppc18$seurat_clusters, dims = 1:30)
+# prostate.castrated.ppc <- AddMetaData(prostate.castrated.ppc, metadata = predictions)
 
-meta_cells_castrated[colnames(prostate.castrated.pp), "seurat_cluster"] <- prostate.castrated.pp$predicted.id
-meta_cells_castrated[colnames(prostate.castrated.ppc), "seurat_cluster"] <- prostate.castrated.ppc$predicted.id
-write.table(meta_cells_castrated, file = paste0(seurat_dir, "meta_castrated_transfer.csv"), sep = "\t", quote = FALSE)
+# meta_cells_castrated[colnames(prostate.castrated.pp), "seurat_cluster"] <- prostate.castrated.pp$predicted.id
+# meta_cells_castrated[colnames(prostate.castrated.ppc), "seurat_cluster"] <- prostate.castrated.ppc$predicted.id
+# write.table(meta_cells_castrated, file = paste0(seurat_dir, "meta_castrated_transfer.csv"), sep = "\t", quote = FALSE)
 
 
 
 # 5. differential expression analysis across cell types ------------------------
-# differential expression analysis between clusters 0, 1, and 7
-# cluster0.markers <- FindMarkers(prostate.combined, ident.1 = 0, ident.2 = NULL, features = prostate.combined@assays$integrated@var.features)
-# cluster1.markers <- FindMarkers(prostate.combined, ident.1 = 1, ident.2 = NULL, features = prostate.combined@assays$integrated@var.features)
-# cluster7.markers <- FindMarkers(prostate.combined, ident.1 = 7, ident.2 = NULL, features = prostate.combined@assays$integrated@var.features)
-# cluster0.1.markers <- FindMarkers(prostate.combined, ident.1 = 0, ident.2 = 1, features = prostate.combined@assays$integrated@var.features)
-# cluster0.7.markers <- FindMarkers(prostate.combined, ident.1 = 0, ident.2 = 7, features = prostate.combined@assays$integrated@var.features)
-# 
-# cluster0.markers <- cluster0.markers[cluster0.markers$p_val_adj < 0.05,]
-# cluster1.markers <- cluster1.markers[cluster1.markers$p_val_adj < 0.05,]
-# cluster7.markers <- cluster7.markers[cluster7.markers$p_val_adj < 0.05,]
-# cluster0.1.markers <- cluster0.1.markers[cluster0.1.markers$p_val_adj < 0.05,]
-# cluster0.7.markers <- cluster0.7.markers[cluster0.7.markers$p_val_adj < 0.05,]
-# 
-# cluster0.markers.enriched <- cluster0.markers[cluster0.markers$avg_log2FC >= 0,]
-# cluster0.markers.depleted <- cluster0.markers[cluster0.markers$avg_log2FC < 0,]
-# cluster1.markers.enriched <- cluster1.markers[cluster1.markers$avg_log2FC >= 0,]
-# cluster1.markers.depleted <- cluster1.markers[cluster1.markers$avg_log2FC < 0,]
-# cluster7.markers.enriched <- cluster7.markers[cluster7.markers$avg_log2FC >= 0,]
-# cluster7.markers.depleted <- cluster7.markers[cluster7.markers$avg_log2FC < 0,]
-# cluster0.1.markers.enriched <- cluster0.1.markers[cluster0.1.markers$avg_log2FC >= 0,]
-# cluster0.1.markers.depleted <- cluster0.7.markers[cluster0.1.markers$avg_log2FC < 0,]
-# cluster0.7.markers.enriched <- cluster0.7.markers[cluster0.7.markers$avg_log2FC >= 0,]
-# cluster0.7.markers.depleted <- cluster0.7.markers[cluster0.7.markers$avg_log2FC < 0,]
-# 
-# cluster0.markers.enriched <- cluster0.markers.enriched[order(x = cluster0.markers.enriched$p_val_adj, y = -cluster0.markers.enriched$avg_log2FC),]
-# cluster0.markers.depleted <- cluster0.markers.depleted[order(x = cluster0.markers.depleted$p_val_adj, y = cluster0.markers.depleted$avg_log2FC),]
-# cluster1.markers.enriched <- cluster1.markers.enriched[order(x = cluster1.markers.enriched$p_val_adj, y = -cluster1.markers.enriched$avg_log2FC),]
-# cluster1.markers.depleted <- cluster1.markers.depleted[order(x = cluster1.markers.depleted$p_val_adj, y = cluster1.markers.depleted$avg_log2FC),]
-# cluster7.markers.enriched <- cluster7.markers.enriched[order(x = cluster7.markers.enriched$p_val_adj, y = -cluster7.markers.enriched$avg_log2FC),]
-# cluster7.markers.depleted <- cluster7.markers.depleted[order(x = cluster7.markers.depleted$p_val_adj, y = cluster7.markers.depleted$avg_log2FC),]
-# cluster0.1.markers.enriched <- cluster0.1.markers.enriched[order(x = cluster0.1.markers.enriched$p_val_adj, y = -cluster0.1.markers.enriched$avg_log2FC),]
-# cluster0.1.markers.depleted <- cluster0.1.markers.depleted[order(x = cluster0.1.markers.depleted$p_val_adj, y = cluster0.1.markers.depleted$avg_log2FC),]
-# cluster0.7.markers.enriched <- cluster0.7.markers.enriched[order(x = cluster0.7.markers.enriched$p_val_adj, y = -cluster0.7.markers.enriched$avg_log2FC),]
-# cluster0.7.markers.depleted <- cluster0.7.markers.depleted[order(x = cluster0.7.markers.depleted$p_val_adj, y = cluster0.7.markers.depleted$avg_log2FC),]
-# 
-# write.table(cluster0.markers.enriched, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster0_enriched.csv", sep = ",", quote = FALSE)
-# write.table(cluster0.markers.depleted, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster0_depleted.csv", sep = ",", quote = FALSE)
-# write.table(cluster1.markers.enriched, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster1_enriched.csv", sep = ",", quote = FALSE)
-# write.table(cluster1.markers.depleted, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster1_depleted.csv", sep = ",", quote = FALSE)
-# write.table(cluster7.markers.enriched, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster7_enriched.csv", sep = ",", quote = FALSE)
-# write.table(cluster7.markers.depleted, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster7_depleted.csv", sep = ",", quote = FALSE)
-# write.table(cluster0.1.markers.enriched, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster0&1_enriched.csv", sep = ",", quote = FALSE)
-# write.table(cluster0.1.markers.depleted, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster0&1_depleted.csv", sep = ",", quote = FALSE)
-# write.table(cluster0.7.markers.enriched, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster0&7_enriched.csv", sep = ",", quote = FALSE)
-# write.table(cluster0.7.markers.depleted, file = "results_seurat_scrnaseq/DE_check_0&1&7/DE_cluster0&7_depleted.csv", sep = ",", quote = FALSE)
-
 # differential expression analysis of all clusters
 # for(cluster.id in seq(0,13)){
 #   cluster.marker <- FindMarkers(prostate.combined, ident.1 = cluster.id, ident.2 = NULL, features = prostate.combined@assays$integrated@var.features)
