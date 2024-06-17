@@ -22,7 +22,7 @@ vis_cas_dir = "../results_scrnaseq/annot_cas/"
 # In[]
 # ---------------------------------------------------------------- #
 #
-# Preprocessing, read in the intact dataset [analysis of castrated dataset already removed]
+# 1. Preprocessing, read in the intact dataset [analysis of castrated dataset already removed]
 #
 # ---------------------------------------------------------------- #
 
@@ -42,7 +42,7 @@ adata_intact.obs["seurat_cluster"] = meta_intact_seurat.loc[adata_intact.obs.ind
 # In[]
 # ---------------------------------------------------------------- #
 #
-# Log-transformation and UMAP calculation
+# 2. Log-transformation and UMAP calculation
 #
 # ---------------------------------------------------------------- #
 sc.pp.normalize_total(adata_intact, target_sum=1e4)
@@ -61,7 +61,7 @@ X_umap_intact = pd.DataFrame(data = adata_merge.obsm["X_umap"], index = adata_me
 # In[]
 # ---------------------------------------------------------------- #
 #
-# Plot the marker gene expression [Log-normalized]
+# 3. Plot the marker gene expression [Log-normalized]
 #
 # ---------------------------------------------------------------- #
 
@@ -103,7 +103,7 @@ for ct in markers.keys():
 # In[]
 # ---------------------------------------------------------------- #
 #
-# Annotate cell types
+# 4. Annotate cell types
 #
 # ---------------------------------------------------------------- #
 
@@ -179,7 +179,7 @@ fig.savefig(vis_intact_dir + "annotation_umap.png", bbox_inches = "tight", dpi =
 # In[]
 # ---------------------------------------------------------------- #
 #
-# Additional interest genes: ``interest genes.csv'', include both scrna-seq genes and visium genes
+# 5. Additional interest genes: ``interest genes.csv'', include both scrna-seq genes and visium genes
 #
 # ---------------------------------------------------------------- #
 #
@@ -345,7 +345,7 @@ for gene, file in zip(interest_genes, full_names):
 # In[]
 # ---------------------------------------------------------------- #
 #
-# Plot cell percentage
+# 6. Plot cell percentage
 #
 # ---------------------------------------------------------------- #
 adata_intact = sc.read_h5ad(seurat_dir + "adata_intact_seurat.h5ad")

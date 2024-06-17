@@ -23,7 +23,7 @@ datadir_m1477_ppc = cellranger_dir + "M1477-XPPC/"
 # In[]
 # ------------------------------------------------------------------------------------------
 #
-# Processing raw data and generate raw anndata file
+# 1. Processing raw data and generate raw anndata file
 #
 # ------------------------------------------------------------------------------------------
 if False:
@@ -43,7 +43,7 @@ if False:
 # In[]
 # ------------------------------------------------------------------------------------------
 #
-# Merge and redo the annotation files
+# 2. Merge and redo the annotation files
 # 
 # ------------------------------------------------------------------------------------------
 adata_m1416_pp18 = sc.read_h5ad(datadir_m1416_pp18 + "adata_raw.h5ad")
@@ -113,7 +113,7 @@ adata_castrated.var.to_csv(raw_dir + "raw_data/gene_castrated.csv")
 # In[]
 # ------------------------------------------------------------------------------------------
 #
-# Quality Control, Intact and Castrated samples are preprocessed separately. Intact:
+# 3. Quality Control, Intact and Castrated samples are preprocessed separately. Intact:
 #
 # ------------------------------------------------------------------------------------------
 
@@ -148,7 +148,7 @@ adata_intact.var.to_csv(raw_dir + "qc_data/gene_intact.csv")
 # In[]
 # ------------------------------------------------------------------------------------------
 #
-# Quality Control, Intact and Castrated samples are preprocessed separately. Castrated:
+# 4. Quality Control, Intact and Castrated samples are preprocessed separately. Castrated:
 #
 # ------------------------------------------------------------------------------------------
 
@@ -180,34 +180,39 @@ mmwrite(raw_dir + "qc_data/X_castrated.mtx", adata_castrated.X)
 adata_castrated.obs.to_csv(raw_dir + "qc_data/meta_castrated.csv")
 adata_castrated.var.to_csv(raw_dir + "qc_data/gene_castrated.csv")
 
-# In[]
-adata_merge = AnnData.concatenate(adata_intact, adata_castrated, join = "inner")
+# # In[]
+# # ---------------------------------------------------------------
+# #
+# # Sanity check
+# #
+# # ---------------------------------------------------------------
+# adata_merge = AnnData.concatenate(adata_intact, adata_castrated, join = "inner")
 
-# log-normalize the gene expression data
-sc.pp.normalize_total(adata_merge, target_sum=1e4)
-sc.pp.log1p(adata_merge)
+# # log-normalize the gene expression data
+# sc.pp.normalize_total(adata_merge, target_sum=1e4)
+# sc.pp.log1p(adata_merge)
 
-# keep only highly variable genes
-sc.pp.highly_variable_genes(adata_merge, n_top_genes = 2000)
-adata_merge.raw = adata_merge
-adata_merge = adata_merge[:, adata_merge.var.highly_variable]
+# # keep only highly variable genes
+# sc.pp.highly_variable_genes(adata_merge, n_top_genes = 2000)
+# adata_merge.raw = adata_merge
+# adata_merge = adata_merge[:, adata_merge.var.highly_variable]
 
-# In[]
-sc.pp.neighbors(adata_merge, n_neighbors=30, n_pcs=100)
-sc.tl.umap(adata_merge)
-sc.pl.umap(adata_merge, color = ["sample"])
+# # In[]
+# sc.pp.neighbors(adata_merge, n_neighbors=30, n_pcs=100)
+# sc.tl.umap(adata_merge)
+# sc.pl.umap(adata_merge, color = ["sample"])
 
-# In[]
-# load cell type annotations
-adata_intact_seurat = sc.read_h5ad(raw_dir + "adata_seurat.h5ad")
-annot_intact = adata_intact_seurat.obs[["annot"]]
-adata_intact.obs["annot"] = annot_intact.loc[adata_intact.obs.index,"annot"]
+# # In[]
+# # load cell type annotations
+# adata_intact_seurat = sc.read_h5ad(raw_dir + "adata_seurat.h5ad")
+# annot_intact = adata_intact_seurat.obs[["annot"]]
+# adata_intact.obs["annot"] = annot_intact.loc[adata_intact.obs.index,"annot"]
 
-sc.pl.umap(adata_intact, color = ["sample", "annot"])
+# sc.pl.umap(adata_intact, color = ["sample", "annot"])
 
-adata_castrated_seurat = sc.read_h5ad(raw_dir + "adata_castrated_seurat.h5ad")
-annot_merge = np.concatenate([adata_intact_seurat.obs["annot"].values, adata_castrated_seurat.obs["annot_transfer"].values], axis = 0)
-annot_merge = pd.DataFrame(index = np.concatenate([adata_intact_seurat.obs.index.values, adata_castrated_seurat.obs.index.values], axis = 0), data = annot_merge, columns = ["annot"])
+# adata_castrated_seurat = sc.read_h5ad(raw_dir + "adata_castrated_seurat.h5ad")
+# annot_merge = np.concatenate([adata_intact_seurat.obs["annot"].values, adata_castrated_seurat.obs["annot_transfer"].values], axis = 0)
+# annot_merge = pd.DataFrame(index = np.concatenate([adata_intact_seurat.obs.index.values, adata_castrated_seurat.obs.index.values], axis = 0), data = annot_merge, columns = ["annot"])
 
 
 # %%
