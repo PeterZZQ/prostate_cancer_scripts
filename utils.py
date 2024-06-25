@@ -118,7 +118,8 @@ def plot_embeds_continuous(embed, annos, figsize = (20,10), axis_label = "Latent
         "markerscale": 1,
         "text_size": "large",
         "ncols": None,
-        "colormap": None
+        "colormap": None,
+        "vmax": None,
     }
     _kwargs.update(kwargs)
 
@@ -157,6 +158,9 @@ def plot_embeds_continuous(embed, annos, figsize = (20,10), axis_label = "Latent
         ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
 
         cbar = fig.colorbar(p, fraction=0.046, pad=0.04, ax = ax)
+        if _kwargs["vmax"] is not None:
+            p.set_clim(0, _kwargs["vmax"][idx])
+            cbar.update_normal(p)
         cbar.ax.tick_params(labelsize = 20)
 
         ax.spines['right'].set_visible(False)
