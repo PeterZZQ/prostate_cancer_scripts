@@ -47,8 +47,9 @@ def plot_embeds(embed, annos, figsize = (20,10), axis_label = "Latent", label_in
     fig = plt.figure(figsize = (figsize[0] * ncols, figsize[1] * nrows), dpi = 300, constrained_layout=True)
     axs = fig.subplots(nrows = nrows, ncols = ncols)
     for idx, anno_name in enumerate(annos.columns):
+        unique_anno = annos[anno_name].cat.categories
         anno = np.array(annos[anno_name].values)
-        unique_anno = np.unique(anno)
+        
 
         if (nrows == 1) & (ncols == 1): 
             ax = axs
@@ -58,7 +59,7 @@ def plot_embeds(embed, annos, figsize = (20,10), axis_label = "Latent", label_in
             ax = axs[idx//_kwargs["ncols"], idx%_kwargs["ncols"]]
 
         if _kwargs["colormap"] is None:
-            colormap = plt.cm.get_cmap("tab20b", len(unique_anno))
+            colormap = plt.cm.get_cmap("tab20")
         else:
             colormap = _kwargs["colormap"]
 
@@ -78,8 +79,8 @@ def plot_embeds(embed, annos, figsize = (20,10), axis_label = "Latent", label_in
 
         ax.tick_params(axis = "both", which = "major", labelsize = 15)
 
-        ax.set_xlabel(axis_label + " 1", fontsize = 19)
-        ax.set_ylabel(axis_label + " 2", fontsize = 19)
+        # ax.set_xlabel(axis_label + " 1", fontsize = 19)
+        # ax.set_ylabel(axis_label + " 2", fontsize = 19)
         ax.xaxis.set_major_locator(plt.MaxNLocator(4))
         ax.yaxis.set_major_locator(plt.MaxNLocator(4))
         ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
@@ -87,6 +88,14 @@ def plot_embeds(embed, annos, figsize = (20,10), axis_label = "Latent", label_in
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
+
+        # remmove tick labels, not useful for visualization
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        # remove axis too
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+
         ax.set_title(anno_name, fontsize = 20)
         # adjust position
         # if label_inplace:
@@ -96,7 +105,7 @@ def plot_embeds(embed, annos, figsize = (20,10), axis_label = "Latent", label_in
 
 
 
-def plot_embeds_continuous(embed, annos, figsize = (20,10), axis_label = "Latent", label_inplace = False, legend = True, **kwargs):
+def plot_embeds_continuous(embed, annos, figsize = (20,10), axis_label = "Latent", **kwargs):
     """\
     Description:
     ----------------
@@ -146,12 +155,13 @@ def plot_embeds_continuous(embed, annos, figsize = (20,10), axis_label = "Latent
         else:
             colormap = _kwargs["colormap"]
 
-        p = ax.scatter(embed[:,0], embed[:,1], c = anno, cmap = colormap, s = _kwargs["s"], alpha = _kwargs["alpha"])
+        # sort according to the ascending of color
+        p = ax.scatter(embed[np.argsort(anno),0], embed[np.argsort(anno),1], c = anno[np.argsort(anno)], cmap = colormap, s = _kwargs["s"], alpha = _kwargs["alpha"])
 
         ax.tick_params(axis = "both", which = "major", labelsize = 15)
 
-        ax.set_xlabel(axis_label + " 1", fontsize = 19)
-        ax.set_ylabel(axis_label + " 2", fontsize = 19)
+        # ax.set_xlabel(axis_label + " 1", fontsize = 19)
+        # ax.set_ylabel(axis_label + " 2", fontsize = 19)
         ax.xaxis.set_major_locator(plt.MaxNLocator(4))
         ax.yaxis.set_major_locator(plt.MaxNLocator(4))
         ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%.1f'))
@@ -165,6 +175,14 @@ def plot_embeds_continuous(embed, annos, figsize = (20,10), axis_label = "Latent
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
+
+        # remmove tick labels, not useful for visualization
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        # remove axis too
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+
         ax.set_title(anno_name, fontsize = 20)
         # adjust position
         # if label_inplace:
@@ -398,3 +416,84 @@ def plot_latent(zs, annos = None, batches = None, mode = "annos", save = None, f
     if save:
         fig.savefig(save, bbox_inches = "tight")
 
+
+
+
+
+def plot_volcano(df, x = "logFC", y = "adj.P.Val", x_cutoffs = [-np.inf, 2], y_cutoff = 0.01, gene_name = True, ylim = None, xlim = None):
+    from adjustText import adjust_text
+    fig = plt.figure(figsize = (10, 7))
+    ax = fig.add_subplot()
+    if ylim is None:
+        ylim = np.inf
+    if xlim is None:
+        xlim = np.inf
+    else:
+        df.loc[df[x] > xlim, x] = xlim
+        df.loc[df[x] < -xlim, x] = -xlim
+
+    ax.scatter(x = df[x], y = df[y].apply(lambda x:-np.log10(max(x, ylim))), s = 1, color = "gray")#, label = "Not significant")
+    
+    # highlight down- or up- regulated genes
+    down = df[(df[x] <= x_cutoffs[0]) & (df[y] <= y_cutoff)]
+    up = df[(df[x] >= x_cutoffs[1]) & (df[y] <= y_cutoff)]
+    ax.scatter(x = down[x], y = down[y].apply(lambda x:-np.log10(max(x, ylim))), s = 3, label = "Down-regulated", color = "blue")
+    ax.scatter(x = up[x], y = up[y].apply(lambda x:-np.log10(max(x, ylim))), s = 3, label = "Up-regulated", color = "red")
+
+    # add legends
+    ax.set_xlabel("logFC", fontsize = 15)
+    ax.set_ylabel("-logPVal", fontsize = 15)
+    ax.set_xlim([-np.max(np.abs(df[x].values)) - 0.5, np.max(np.abs(df[x].values)) + 0.5])
+    # ax.set_ylim(-3, 50)
+    if len(down) > 0:
+        ax.axvline(x_cutoffs[0], color = "grey", linestyle = "--")
+    if len(up) > 0:
+        ax.axvline(x_cutoffs[1], color = "grey", linestyle = "--")
+    ax.axhline(-np.log10(y_cutoff), color = "grey", linestyle = "--")
+    leg = ax.legend(loc='upper left', prop={'size': 15}, frameon = False, bbox_to_anchor=(1.04, 1), markerscale = 3)
+    for lh in leg.legendHandles: 
+        lh.set_alpha(1)
+
+    # add gene names
+    if gene_name:
+        texts = []
+        for i,r in down.iterrows():
+            texts.append(plt.text(x = r[x], y = -np.log10(max(r[y], ylim)), s = i, fontsize = 7))
+
+        for i,r in up.iterrows():
+            texts.append(plt.text(x = r[x], y = -np.log10(max(r[y], ylim)), s = i, fontsize = 7))
+        # # optional, adjust text
+        adjust_text(texts)#,arrowprops=dict(arrowstyle="-", color='black', lw=0.5))
+    
+    return fig, ax
+
+
+
+def class_infiltration(x_loc, annots, immune_annot, tumor_annot, n_neighbors = 40, thresh = 30):
+    """\
+        Description:
+        ----------------
+            Classify if the immune cell infiltrate the tumor or not
+        
+        Parameters:
+        ----------------
+            x_loc: the spatial locations of cells
+            annots: the annotation of cells (including tumor and immune cell)
+            immune_annot: the annotation of immune cell name
+            tumor_annot: the annotation of tumor cell name
+            n_neighbors: number of neighbors for knn graph construction
+            thresh: knn classification threshold
+    
+    """
+    from sklearn.neighbors import NearestNeighbors
+    nbrs_full = NearestNeighbors(n_neighbors = n_neighbors).fit(x_loc)
+    distances, indices = nbrs_full.kneighbors(x_loc[annots == immune_annot, :])
+    infiltration_annot = np.array([f"{immune_annot} (not infil)"] * indices.shape[0], dtype = object)
+    for cell in range(indices.shape[0]):
+        nbr_cts, nbr_ct_counts = np.unique(annots[indices[cell,:]], return_counts = True)
+        if tumor_annot in nbr_cts:
+            if nbr_ct_counts[nbr_cts == tumor_annot] > 30:
+                infiltration_annot[cell] = f"{immune_annot} (infil)"
+    annots[annots == immune_annot] = infiltration_annot
+
+    return annots

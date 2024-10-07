@@ -21,51 +21,6 @@ import seaborn as sns
 # optional
 from adjustText import adjust_text
 
-def plot_volcano(df, x = "logFC", y = "adj.P.Val", x_cutoff = 2, y_cutoff = 0.01, gene_name = True, ylim = None, xlim = None):
-    fig = plt.figure(figsize = (10, 7))
-    ax = fig.add_subplot()
-    if ylim is None:
-        ylim = np.inf
-    if xlim is None:
-        xlim = np.inf
-    else:
-        df.loc[df[x] > xlim, x] = xlim
-        df.loc[df[x] < -xlim, x] = -xlim
-
-    ax.scatter(x = df[x], y = df[y].apply(lambda x:-np.log10(max(x, ylim))), s = 1, color = "gray")#, label = "Not significant")
-    
-    # highlight down- or up- regulated genes
-    down = df[(df[x] <= -x_cutoff) & (df[y] <= y_cutoff)]
-    up = df[(df[x] >= x_cutoff) & (df[y] <= y_cutoff)]
-    ax.scatter(x = down[x], y = down[y].apply(lambda x:-np.log10(max(x, ylim))), s = 3, label = "Down-regulated", color = "blue")
-    ax.scatter(x = up[x], y = up[y].apply(lambda x:-np.log10(max(x, ylim))), s = 3, label = "Up-regulated", color = "red")
-
-    # add legends
-    ax.set_xlabel("logFC", fontsize = 15)
-    ax.set_ylabel("-logPVal", fontsize = 15)
-    ax.set_xlim([-np.max(np.abs(df[x].values)) - 0.5, np.max(np.abs(df[x].values)) + 0.5])
-    # ax.set_ylim(-3, 50)
-    ax.axvline(-x_cutoff, color = "grey", linestyle = "--")
-    ax.axvline(x_cutoff, color = "grey", linestyle = "--")
-    ax.axhline(-np.log10(y_cutoff), color = "grey", linestyle = "--")
-    leg = ax.legend(loc='upper left', prop={'size': 15}, frameon = False, bbox_to_anchor=(1.04, 1), markerscale = 3)
-    for lh in leg.legendHandles: 
-        lh.set_alpha(1)
-
-    # add gene names
-    if gene_name:
-        texts = []
-        for i,r in down.iterrows():
-            texts.append(plt.text(x = r[x], y = -np.log10(max(r[y], ylim)), s = i, fontsize = 7))
-
-        for i,r in up.iterrows():
-            texts.append(plt.text(x = r[x], y = -np.log10(max(r[y], ylim)), s = i, fontsize = 7))
-        # # optional, adjust text
-        adjust_text(texts)#,arrowprops=dict(arrowstyle="-", color='black', lw=0.5))
-    
-    return fig, ax
-
-
 
 # In[]
 # ---------------------------------------------------------------- #
@@ -141,7 +96,7 @@ for ct in adata_intact_seurat.obs["annot"].cat.categories:
     # # [removed] drop the genes that are not expressed at all in ct/background, possibly technical noise
     # DE_df = DE_df[(DE_df["pts"] > 0) & (DE_df["pts_rest"] > 0)]
 
-    fig, ax = plot_volcano(df = DE_df, x = "log_fold", y = "pval (adj)", x_cutoff = 2, y_cutoff = 0.01, gene_name = False, ylim = 10e-15, xlim = 15)
+    fig, ax = utils.plot_volcano(df = DE_df, x = "log_fold", y = "pval (adj)", x_cutoff = 2, y_cutoff = 0.01, gene_name = False, ylim = 10e-15, xlim = 15)
     ax.set_title(ct, fontsize = 20)
     fig.savefig(DE_ct_dir + f"volcano_{ct}.png", bbox_inches = "tight", dpi = 150)
 
@@ -313,7 +268,7 @@ for ct in adata_intact_seurat.obs["annot"].cat.categories:
         DE_df_deplete = pd.read_csv(DE_gt_dir + f"DE_{ct}_PPC_deplete.csv", sep = ",", index_col = 0)
 
     DE_df = pd.concat([DE_df_enrich, DE_df_deplete], axis = 0, ignore_index = False)
-    fig, ax = plot_volcano(df = DE_df, x = "log_fold", y = "pval (adj)", x_cutoff = 1.5, y_cutoff = 0.01, gene_name = True, ylim = 10e-15, xlim = 15)
+    fig, ax = utils.plot_volcano(df = DE_df, x = "log_fold", y = "pval (adj)", x_cutoff = 1.5, y_cutoff = 0.01, gene_name = True, ylim = 10e-15, xlim = 15)
     ax.set_title(ct, fontsize = 20)
     if use_interest_genes:
         fig.savefig(DE_gt_dir + f"volcano_{ct}_interest_genes.png", bbox_inches = "tight", dpi = 150)

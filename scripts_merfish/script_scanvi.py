@@ -10,32 +10,122 @@ import utils
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+from matplotlib.colors import LogNorm
 # In[]
 # -----------------------------------------------------------------------------------------
-#
+# NOTE: SECTION 1: Loading dataset
 # load reference and query dataset
 # 1. Reference: scRNA-seq dataset, include 4 samples/batches.
 # 2. Query: merfish dataset, include 2 samples/batches: Merfish-PP15, Merfish-PPC15
 #
-# -----------------------------------------------------------------------------------------
+# NOTE: For label transfer, we use annot instead of annot.sub, annot.sub provide detailed 
+# annotation of immune subtypes (including Lymphoid and Macrophage), but the accuracy is low
+# For annot, the high-level immune cell annotation is highly accurate 
+# (Lymphoid, Macrophage, myeloid are separate clusters)
 #
-# load query dataset, region 0: PPC15, region 1: PP15
-# 1. load region 0
-adata_merfish_ppc = sc.read_h5ad("../dataset/data_merfish/region_0/adata_qc.h5ad")
-adata_merfish_ppc.obs["annot"] = pd.Categorical(["Unknown"] * adata_merfish_ppc.shape[0], categories = ["Unknown"])
-adata_merfish_ppc.obs["genotype"] = pd.Categorical(["PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"] * adata_merfish_ppc.shape[0], categories = ["PbCre(+/-),Pten(-/-),P53(-/-)", "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"])
-adata_merfish_ppc.obs["sample"] = pd.Categorical(["Merfish-PPC15"] * adata_merfish_ppc.shape[0], categories = ["Merfish-PP15", "Merfish-PPC15"])
+# ----------------------------------------------------------------------------------------
+use_proseg = True
+dataset = "merfish0626"
 
-# 2. load region 1
-adata_merfish_pp = sc.read_h5ad("../dataset/data_merfish/region_1/adata_qc.h5ad")
-adata_merfish_pp.obs["annot"] = pd.Categorical(["Unknown"] * adata_merfish_pp.shape[0], categories = ["Unknown"])
-adata_merfish_pp.obs["genotype"] = pd.Categorical(["PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"] * adata_merfish_pp.shape[0], categories = ["PbCre(+/-),Pten(-/-),P53(-/-)", "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"])
-adata_merfish_pp.obs["sample"] = pd.Categorical(["Merfish-PP15"] * adata_merfish_pp.shape[0], categories = ["Merfish-PP15", "Merfish-PPC15"])
+# first batch of merfish dataset
+if dataset == "merfish1":
+    # load merfish query dataset, region 0: PP15, region 1: PPC15
+    # 1. load region 0
+    if use_proseg:
+        adata_merfish_pp = sc.read_h5ad("../dataset/data_merfish/region_0/proseg_results/adata_qc.h5ad")
+    else:
+        adata_merfish_pp = sc.read_h5ad("../dataset/data_merfish/region_0/adata_qc.h5ad")
+    adata_merfish_pp.obs["annot"] = pd.Categorical(["Unknown"] * adata_merfish_pp.shape[0], categories = ["Unknown"])
+    adata_merfish_pp.obs["genotype"] = pd.Categorical(["PbCre(+/-),Pten(-/-),P53(-/-)"] * adata_merfish_pp.shape[0], categories = ["PbCre(+/-),Pten(-/-),P53(-/-)", "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"])
+    adata_merfish_pp.obs["sample"] = pd.Categorical([f"{dataset}-PP"] * adata_merfish_pp.shape[0], categories = [f"{dataset}-PP", f"{dataset}-PPC"])
+    # 2. load region 1
+    if use_proseg:
+        adata_merfish_ppc = sc.read_h5ad("../dataset/data_merfish/region_1/proseg_results/adata_qc.h5ad")
+    else:
+        adata_merfish_ppc = sc.read_h5ad("../dataset/data_merfish/region_1/adata_qc.h5ad")
+    adata_merfish_ppc.obs["annot"] = pd.Categorical(["Unknown"] * adata_merfish_ppc.shape[0], categories = ["Unknown"])
+    adata_merfish_ppc.obs["genotype"] = pd.Categorical(["PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"] * adata_merfish_ppc.shape[0], categories = ["PbCre(+/-),Pten(-/-),P53(-/-)", "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"])
+    adata_merfish_ppc.obs["sample"] = pd.Categorical([f"{dataset}-PPC"] * adata_merfish_ppc.shape[0], categories = [f"{dataset}-PP", f"{dataset}-PPC"])
 
+else:
+    # merfish0617 query dataset, region 0: PPC15, region 1: PP15
+    # merfish0626 query dataset, region 0: PPC19, region 1: PP19
+    # 1. load region 0
+    if use_proseg:
+        adata_merfish_ppc = sc.read_h5ad(f"../dataset/{dataset}/region_0/proseg_results/adata_qc.h5ad")
+    else:
+        adata_merfish_ppc = sc.read_h5ad(f"../dataset/{dataset}/region_0/adata_qc.h5ad")
+    adata_merfish_ppc.obs["annot"] = pd.Categorical(["Unknown"] * adata_merfish_ppc.shape[0], categories = ["Unknown"])
+    adata_merfish_ppc.obs["genotype"] = pd.Categorical(["PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"] * adata_merfish_ppc.shape[0], categories = ["PbCre(+/-),Pten(-/-),P53(-/-)", "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"])
+    adata_merfish_ppc.obs["sample"] = pd.Categorical([f"{dataset}-PPC"] * adata_merfish_ppc.shape[0], categories = [f"{dataset}-PP", f"{dataset}-PPC"])
+    # 2. load region 1
+    if use_proseg:
+        if dataset == "merfish0626":
+            adata_merfish_pp = sc.read_h5ad(f"../dataset/{dataset}/region_1/proseg_results/adata_qc_f.h5ad")
+        else:
+            adata_merfish_pp = sc.read_h5ad(f"../dataset/{dataset}/region_1/proseg_results/adata_qc.h5ad")
+    else:
+        adata_merfish_pp = sc.read_h5ad(f"../dataset/{dataset}/region_1/adata_qc.h5ad")
+    adata_merfish_pp.obs["annot"] = pd.Categorical(["Unknown"] * adata_merfish_pp.shape[0], categories = ["Unknown"])
+    adata_merfish_pp.obs["genotype"] = pd.Categorical(["PbCre(+/-),Pten(-/-),P53(-/-)"] * adata_merfish_pp.shape[0], categories = ["PbCre(+/-),Pten(-/-),P53(-/-)", "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"])
+    adata_merfish_pp.obs["sample"] = pd.Categorical([f"{dataset}-PP"] * adata_merfish_pp.shape[0], categories = [f"{dataset}-PP", f"{dataset}-PPC"])
+
+# NOTE: load reference annotation dataset, ref1 is the generated dataset, ref2 is the public available dataset
+ref = "combined"
+
+# NOTE: reference 1, self-generated
 # load reference scRNA-seq dataset, NOTE: use raw data, include 4 samples/batches
-adata_ref =  sc.read_h5ad("../dataset/data_scrnaseq/data/qc_data/adata_qc_intact.h5ad")
-adata_ref.obs["annot"] = sc.read_h5ad("../dataset/data_scrnaseq/seurat_integration/adata_intact_seurat.h5ad").obs.loc[adata_ref.obs.index,"annot"].values
+adata_ref1 =  sc.read_h5ad("../dataset/data_scrnaseq/data/qc_data/adata_qc_intact.h5ad")
+# The smallest cell cluster in reference: Lymphoid, include 349 cells
+# lt_correct is the corrected version of the label 
+adata_ref1.obs["annot"] = sc.read_h5ad("../dataset/data_scrnaseq/seurat_integration/adata_intact_seurat_lt_correct.h5ad").obs.loc[adata_ref1.obs.index,"annot (lt_correct)"].values
 
+# NOTE: reference 2: public healthy data
+# NOTE: the public dataset is already qc-ed
+adata_ref2 = sc.read_h5ad("../dataset/reference_scrnaseq/reference_raw.h5ad")
+# update the batch and annotation labels for LT
+adata_ref2.obs["sample"] = adata_ref2.obs["batchID"].values
+print("number of batches in reference: {:d}".format(len(np.unique(adata_ref2.obs["batchID"]))))
+# fulltypemerged separate immune cells compared to the IntType
+adata_ref2.obs["annot"] = adata_ref2.obs["FullTypeMerged"].values.astype(object)
+# remove the predicted doublets
+adata_ref2 = adata_ref2[~adata_ref2.obs["annot"].isin(["PredDoublet_Epi_Imm", "PredDoublet_Str_Epi", "PredDoublet_Str_Imm"]),:]
+
+# process the annotations
+combined_annos = [x + "-" + y for x,y in zip(adata_ref2.obs["IntType"].values, adata_ref2.obs["FullTypeMerged"].values)]
+for x in np.unique(combined_annos):
+    print(x)
+# combine the SV cells, not of interest, better to remove SV cells when calculating the cell type proportion
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Epi_SV_Basal", "Epi_SV_Ionocyte", "Epi_SV_Luminal"]), "annot"] = "SV"
+# combine endothelium
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Str_Endothelium_Lymphatic", "Str_Endothelium_Vascular"]), "annot"] = "Endothelial"
+# combine luminal
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Epi_Luminal", "Epi_Luminal_2Psca", "Epi_Luminal_3Foxi1"]), "annot"] = "Luminal"
+# combine lymphoid, NOTE: the lymphoid subtype annotation is not very accurate according to marker gene checking
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Imm_B", "Imm_NK", "Imm_Tcell"]), "annot"] = "Lymphoid"
+# change name
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Str_Mesenchymal"]), "annot"] = "Mesenchymal"
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Epi_Basal"]), "annot"] = "Basal"
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Imm_Macrophage"]), "annot"] = "Macrophage"
+adata_ref2.obs.loc[adata_ref2.obs["annot"].isin(["Imm_DC"]), "annot"] = "DC"
+adata_ref2.obs["annot"] = adata_ref2.obs["annot"].astype("category")
+print(np.unique(adata_ref2.obs["annot"], return_counts = True))
+
+
+if ref == "ref1":
+    adata_ref = adata_ref1.copy()
+    adata_ref.obs["modality"] = "Ref"
+elif ref == "ref2":
+    adata_ref = adata_ref2.copy()
+    adata_ref.obs["modality"] = "Ref"
+elif ref == "combined":    
+    # combined luminal spink1+ into luminal, club epithelial is a separate cluster, not combined
+    adata_ref1.obs["annot"] = adata_ref1.obs["annot"].values.astype(object)
+    adata_ref1.obs.loc[adata_ref1.obs["annot"].isin(["Luminal (Spink1+)"]), "annot"] = "Luminal"
+    adata_ref = anndata.concat([adata_ref1, adata_ref2], axis = 0, join = "inner", label = "modality", keys = ["Ref1", "Ref2"])
+    adata_ref.obs["annot"] = adata_ref.obs["annot"].astype("category")
 # find overlapping features
 gene_overlap = np.intersect1d(adata_merfish_pp.var.index.values, adata_ref.var.index.values)
 adata_ref = adata_ref[:, gene_overlap]
@@ -46,18 +136,35 @@ adata_merfish_pp.layers["counts"] = adata_merfish_pp.X.copy()
 adata_merfish_ppc.layers["counts"] = adata_merfish_ppc.X.copy()
 
 # result directory
-res_dir = "../results_merfish/annot/"
+# number of samples, maybe try different values for ref2, the population of ref2 is large, could run 500
+nsamples_scanvi = 300
+if use_proseg:
+    if ref == "ref1":
+        res_dir = f"../results_merfish/results_{dataset}_proseg/annot_{nsamples_scanvi}_ref1/"
+    elif ref == "ref2":
+        res_dir = f"../results_merfish/results_{dataset}_proseg/annot_{nsamples_scanvi}_ref2/"
+    elif ref == "combined":
+        res_dir = f"../results_merfish/results_{dataset}_proseg/annot_{nsamples_scanvi}_combined/"
+else:
+    if ref == "ref1":
+        res_dir = f"../results_merfish/results_{dataset}/annot_{nsamples_scanvi}_ref1/"
+    elif ref == "ref2":
+        res_dir = f"../results_merfish/results_{dataset}/annot_{nsamples_scanvi}_ref2/"
+    elif ref == "combined":
+        res_dir = f"../results_merfish/results_{dataset}/annot_{nsamples_scanvi}_combined/"
 if not os.path.exists(res_dir):
-    os.makedirs(res_dir)
-
+    os.makedirs(res_dir + "plots_marker/")
 
 # In[] 
 # -----------------------------------------------------------------------------------------
-#
+# NOTE: SECTION 2: Running scANVI
 # Label transfer -- scANVI
 # obtain label annotation
 #
 # -----------------------------------------------------------------------------------------
+# set the seed before running the model, for reproductivity
+scvi.settings.seed = 0
+
 # NOTE: Step 1, Train scVI on reference scRNA-seq dataset
 # Train scVI on the reference dataset 
 scvi.model.SCVI.setup_anndata(adata_ref, batch_key = "sample", layer = "counts", labels_key = "annot")
@@ -67,15 +174,6 @@ scvi_ref.train()
 # Save the trained model on the reference scRNA-seq data
 scvi_ref.save(res_dir + "scvi_reference", overwrite=True)
 
-# # Sanity check, visualize the trained reference result (scVI)
-# SCVI_LATENT_KEY = "X_scVI"
-# adata_ref.obsm[SCVI_LATENT_KEY] = scvi_ref.get_latent_representation()
-# sc.pp.neighbors(adata_ref, use_rep = SCVI_LATENT_KEY)
-# sc.tl.umap(adata_ref)
-# sc.pl.umap(adata_ref, color=["sample", "annot"], frameon=False, ncols=1)
-# utils.plot_latent(adata_ref.obsm["X_umap"], annos = np.array([x for x in adata_ref.obs["annot"].values]), batches = np.array([x for x in adata_ref.obs["sample"].values]), mode = "separate", figsize = (10, 25))
-
-# In[]
 # NOTE: Step 2, Train scANVI based on scVI model
 # Reference
 # use scvi initialized with the reference dataset for better result
@@ -83,58 +181,37 @@ scvi_model = scvi.model.SCVI.load(res_dir + "scvi_reference", adata = adata_ref)
 # use the same label, layer, batch_label as in scvi
 scanvi_model = scvi.model.SCANVI.from_scvi_model(scvi_model, labels_key = "annot", unlabeled_category="Unknown")
 # default for n_samples_per_label is None, here we use the example value 100
-scanvi_model.train(max_epochs = 20, n_samples_per_label = 500)
+scanvi_model.train(max_epochs = 20, n_samples_per_label = nsamples_scanvi)
 scanvi_model.save(res_dir + "scanvi_reference", overwrite=True)
-
 SCANVI_LATENT_KEY = "X_scANVI"
 
-# # Sanity check, visualize the trained reference result (scANVI)
-# adata_ref.obsm[SCANVI_LATENT_KEY] = scanvi_model.get_latent_representation()
-# sc.pp.neighbors(adata_ref, use_rep=SCANVI_LATENT_KEY)
-# sc.tl.umap(adata_ref)
-# sc.pl.umap(adata_ref, color=["sample", "annot"], frameon=False, ncols=1)
-# utils.plot_latent(adata_ref.obsm["X_umap"], annos = np.array([x for x in adata_ref.obs["annot"].values]), batches = np.array([x for x in adata_ref.obs["sample"].values]), mode = "separate", figsize = (10, 25))
-
-# 1. Query classification, obtain the PP annotation
-scvi.model.SCANVI.prepare_query_anndata(adata_merfish_pp, scanvi_model)
-scanvi_query_pp = scvi.model.SCANVI.load_query_data(adata_merfish_pp, scanvi_model)
-scanvi_query_pp.train(max_epochs=100, plan_kwargs={"weight_decay": 0.0}, check_val_every_n_epoch=10,)
+# Joint training: transfer labels jointly to pp and ppc
+# combine pp and ppc, no need for label and keys
+adata_merfish = anndata.concat([adata_merfish_pp, adata_merfish_ppc], join = "inner")
+# Query classification for combined merfish data
+scvi.model.SCANVI.prepare_query_anndata(adata_merfish, scanvi_model)
+scanvi_query = scvi.model.SCANVI.load_query_data(adata_merfish, scanvi_model)
+scanvi_query.train(max_epochs=100, plan_kwargs={"weight_decay": 0.0}, check_val_every_n_epoch=10,)
 SCANVI_PREDICTIONS_KEY = "predictions_scanvi"
-
-adata_merfish_pp.obsm[SCANVI_LATENT_KEY] = scanvi_query_pp.get_latent_representation()
-adata_merfish_pp.obs[SCANVI_PREDICTIONS_KEY] = scanvi_query_pp.predict()
-
-scanvi_query_pp.save(res_dir + "scanvi_pp", overwrite = True)
-
-adata_merfish_pp.write_h5ad(res_dir + "scanvi_pp/adata_merfish_pp.h5ad")
-adata_merfish_pp.obs.to_csv(res_dir + "scanvi_pp/scanvi_annot_pp.csv")
-
-# 2. Query classification, obtain the PPC annotation
-scvi.model.SCANVI.prepare_query_anndata(adata_merfish_ppc, scanvi_model)
-scanvi_query_ppc = scvi.model.SCANVI.load_query_data(adata_merfish_ppc, scanvi_model)
-scanvi_query_ppc.train(max_epochs=100, plan_kwargs={"weight_decay": 0.0}, check_val_every_n_epoch=10,)
-SCANVI_PREDICTIONS_KEY = "predictions_scanvi"
-
-adata_merfish_ppc.obsm[SCANVI_LATENT_KEY] = scanvi_query_ppc.get_latent_representation()
-adata_merfish_ppc.obs[SCANVI_PREDICTIONS_KEY] = scanvi_query_ppc.predict()
-
-scanvi_query_ppc.save(res_dir + "scanvi_ppc", overwrite = True)
-adata_merfish_ppc.write_h5ad(res_dir + "scanvi_ppc/adata_merfish_ppc.h5ad")
-adata_merfish_ppc.obs.to_csv(res_dir + "scanvi_ppc/scanvi_annot_ppc.csv")
-
+adata_merfish.obsm[SCANVI_LATENT_KEY] = scanvi_query.get_latent_representation()
+adata_merfish.obs[SCANVI_PREDICTIONS_KEY] = scanvi_query.predict()
+scanvi_query.save(res_dir + "scanvi", overwrite = True)
+adata_merfish.write_h5ad(res_dir + "scanvi/adata_merfish.h5ad")
 
 # In[]
 # -----------------------------------------------------------------------------------------
 #
-# Load annotation result and marker information for downstream analysis
+# NOTE: SECTION 3: Downstream analysis, Load annotation result and marker information for downstream analysis
 #
 # -----------------------------------------------------------------------------------------
-adata_merfish_pp = sc.read_h5ad(res_dir + "scanvi_pp/adata_merfish_pp.h5ad")
-adata_merfish_ppc = sc.read_h5ad(res_dir + "scanvi_ppc/adata_merfish_ppc.h5ad")
+adata_merfish = sc.read_h5ad(res_dir + "scanvi/adata_merfish.h5ad")
 SCANVI_LATENT_KEY = "X_scANVI"
 SCANVI_PREDICTIONS_KEY = "predictions_scanvi"
-adata_merfish_pp.obsm["spatial"] = np.vstack([0.5 * (adata_merfish_pp.obs["min_x"].values + adata_merfish_pp.obs["max_x"].values), 0.5 * (adata_merfish_pp.obs["min_y"].values + adata_merfish_pp.obs["max_y"].values)]).T 
-adata_merfish_ppc.obsm["spatial"] = np.vstack([0.5 * (adata_merfish_ppc.obs["min_x"].values + adata_merfish_ppc.obs["max_x"].values), 0.5 * (adata_merfish_ppc.obs["min_y"].values + adata_merfish_ppc.obs["max_y"].values)]).T 
+if use_proseg:
+    adata_merfish.obsm["spatial"] = adata_merfish.obsm["X_spatial"]
+# separate
+adata_merfish_pp = adata_merfish[adata_merfish.obs["genotype"] == "PbCre(+/-),Pten(-/-),P53(-/-)"]
+adata_merfish_ppc = adata_merfish[adata_merfish.obs["genotype"] == "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"]
 
 # Read in the gene panel information
 gene_panel_info = pd.read_csv("../dataset/data_merfish/MERSCOPE_gene_panel_info.csv", index_col = 0)
@@ -144,318 +221,258 @@ markers["luminal"] = ["Ar", "Krt8"]
 markers["basal"] = ["Trp63", "Krt5"]
 markers["club_epithelia"] = ["Agr2", "Krt7"]
 markers["endothelial"] = ["Ackr1", "Cldn5"]
+markers["mesenchymal"] = ["Fgf10", "Wnt10a", "Wnt2"]
+# immune markers
 markers["lymphoid"] = ["Cd3e", "Ms4a1", "Klrb1c"]
-markers["myeloid"] = ["Ptprc", "Itgam"]
+# markers["myeloid"] = ["Ptprc", "Itgam"]
 markers["monocytes"] = ["Ptprc", "Itgam", "Cd14", "S100a8", "S100a9"] 
 markers["macrophage"] = ["Ptprc", "Itgam", "Adgre1"]
-markers["macrophage_m1"] = ["Ptprc", "Itgam", "Adgre1", "Cd68", "Nos2"]
-markers["macrophage_m2"] = ["Ptprc", "Itgam", "Adgre1", "Mrc1", "Arg1"]
-markers["mesenchymal"] = ["Fgf10", "Wnt10a", "Wnt2"]
+
+# macrophage sub markers in MerFISH dataset
+# Il6: M1, inflammation
+# Cd68, Il23a, Cd80, Cd86, Nos2, Cxcl9, Cxcl10: M1
+# Ccl22, Ccl24: M2 cytokines
+# Msr1: M2 TAM
+# Cd163: M2 macrophage
+# Mrc1: M2 macrophage, Reg-TAM
+markers["macrophage_m1"] = ["Il6", "Il23a", "Cd80", "Cd86", "Cxcl9", "Cxcl10", "Cd68", "Nos2"]
+markers["macrophage_m2"] = ["Ccl22", "Ccl24", "Msr1", "Cd163", "Mrc1"]
 # useless, just for sanity check
 # markers["sv"] = ["Pax2"]
 
-# log-normalize the cells
-adata_merfish = anndata.concat([adata_merfish_pp, adata_merfish_ppc])
-sc.pp.normalize_total(adata_merfish, 1e4)
-sc.pp.log1p(adata_merfish)
+# NOTE: Sanity check, umap of data with predict label
+# # log-normalize the cells
+# adata_merfish = anndata.concat([adata_merfish_pp, adata_merfish_ppc])
+# sc.pp.normalize_total(adata_merfish, 1e4)
+# sc.pp.log1p(adata_merfish)
+# # calculate the umap embedding for the query dataset
+# # sc.tl.pca(adata_merfish, n_comps = 100)
+# sc.pp.neighbors(adata_merfish, n_neighbors = 50)
+# sc.tl.umap(adata_merfish, min_dist = 0.4)
+# Visualize using UMAP embedding, batch effect is not strong here, not useful
+# fig = utils.plot_by_batch(adata_merfish.obsm["X_umap"], annos = np.array([x for x in adata_merfish.obs[SCANVI_PREDICTIONS_KEY].values]), 
+#                           batches = np.array([x for x in adata_merfish.obs["sample"].values]), figsize = (12, 6), ncols = 2, s = 1, alpha = 0.3, markerscale = 10)
+# fig.savefig(res_dir + "umap_scanvi_merfish.png", bbox_inches = "tight", dpi = 150)
+# fig = utils.plot_embeds(adata_merfish.obsm["X_umap"], annos = ct_df, figsize = (12, 6), s = 1, alpha = 0.7, markerscale = 10, colormap = cmap2colors, ncols = 3)
+# fig.savefig(res_dir + "umap_scanvi_merfish_ct.png", bbox_inches = "tight", dpi = 150)
 
 # In[]
 # -----------------------------------------------------------------------------------------
 #
-# NOTE: Downstream 1: Visualize the predicted labels
+# Visualize the integrated latent embedding
 #
 # -----------------------------------------------------------------------------------------
-# Visualize using joint scANVI embedding
-# 1. PP
-adata_ref_pp = anndata.concat([adata_ref, adata_merfish_pp])
-adata_ref_pp.obs.loc[adata_merfish_pp.obs.index,"annot"] = [x for x in adata_merfish_pp.obs[SCANVI_PREDICTIONS_KEY].values]
-# load scanvi model and obtain embedding
-scanvi_query_pp = scvi.model.SCANVI.load(res_dir + "scanvi_pp/", adata = adata_ref_pp)
-adata_ref_pp.obsm[SCANVI_LATENT_KEY] = scanvi_query_pp.get_latent_representation(adata_ref_pp)
-sc.pp.neighbors(adata_ref_pp, use_rep=SCANVI_LATENT_KEY)
-sc.tl.umap(adata_ref_pp)
+plt.ioff()
+# NOTE: Sanity check, visualize using joint scANVI embedding, see if the query dataset distribution truly is aligned to reference
+# scANVI can perform bad when there is mismatch
+# JOINT
+adata_merfish_pp.obs["modality"] = "Merfish-pp"
+adata_merfish_ppc.obs["modality"] = "Merfish-ppc"
+adata_ref_merfish = anndata.concat([adata_ref, adata_merfish_pp, adata_merfish_ppc], join = "inner")
+adata_ref_merfish.obs.loc[adata_merfish.obs.index,"annot"] = [x for x in adata_merfish.obs[SCANVI_PREDICTIONS_KEY].values]
+scanvi_query = scvi.model.SCANVI.load(res_dir + "scanvi/", adata = adata_ref_merfish)
+# obtain the integrated latent embedding of ref, pp and ppc
+adata_ref_merfish.obsm[SCANVI_LATENT_KEY] = scanvi_query.get_latent_representation(adata_ref_merfish)
+sc.pp.neighbors(adata_ref_merfish, use_rep=SCANVI_LATENT_KEY)
+sc.tl.umap(adata_ref_merfish)
 
-# 2. PPC
-adata_ref_ppc = anndata.concat([adata_ref, adata_merfish_ppc])
-adata_ref_ppc.obs.loc[adata_merfish_ppc.obs.index,"annot"] = [x for x in adata_merfish_ppc.obs[SCANVI_PREDICTIONS_KEY].values]
-scanvi_query_ppc = scvi.model.SCANVI.load(res_dir + "scanvi_ppc/", adata = adata_ref_ppc)
-adata_ref_ppc.obsm[SCANVI_LATENT_KEY] = scanvi_query_ppc.get_latent_representation(adata_ref_ppc)
-sc.pp.neighbors(adata_ref_ppc, use_rep=SCANVI_LATENT_KEY)
-sc.tl.umap(adata_ref_ppc)
+fig = utils.plot_by_batch(adata_ref_merfish.obsm["X_umap"], annos = np.array([x for x in adata_ref_merfish.obs["annot"].values]),
+                          batches = np.array([x for x in adata_ref_merfish.obs["modality"].values]), figsize = (12, 6),
+                          ncols = 2, s = 1, alpha = 0.3, markerscale = 10)
+fig.savefig(res_dir + "scanvi_embed.png", bbox_inches = "tight", dpi = 150)
 
-# Visualization using predicted annotation
-sc.pl.umap(adata_ref_pp, color=["sample", "annot"], frameon=False, ncols=1)
-utils.plot_latent(adata_ref_pp.obsm["X_umap"], annos = np.array([x for x in adata_ref_pp.obs["annot"].values]), batches = np.array([x for x in adata_ref_pp.obs["sample"].values]), mode = "separate", figsize = (15, 35), save = res_dir + "scanvi_pp/scanvi_umap.pdf")
+# update the umap of adata_merfish
+# adata_merfish.obsm["X_scanvi_umap"] = np.concatenate([adata_ref_pp[adata_ref_pp.obs["modality"] == "Merfish"].obsm["X_umap"], 
+#                                                       adata_ref_ppc[adata_ref_ppc.obs["modality"] == "Merfish"].obsm["X_umap"]], axis = 0)
+# Joint, update the umap of merfish data with integrated space
+adata_merfish.obsm["X_scanvi_umap"] = adata_ref_merfish[adata_merfish.obs.index.values,:].obsm["X_umap"]
 
-sc.pl.umap(adata_ref_ppc, color=["sample", "annot"], frameon=False, ncols=1)
-utils.plot_latent(adata_ref_ppc.obsm["X_umap"], annos = np.array([x for x in adata_ref_ppc.obs["annot"].values]), batches = np.array([x for x in adata_ref_ppc.obs["sample"].values]), mode = "separate", figsize = (15, 35), save = res_dir + "scanvi_ppc/scanvi_umap.pdf")
 
 # In[]
-# Visualize using UMAP embedding
-# calculate the umap embedding
-sc.tl.pca(adata_merfish, n_comps = 100)
-sc.pp.neighbors(adata_merfish, use_rep = "X_pca")
-sc.tl.umap(adata_merfish, min_dist = 0.1)
+# -----------------------------------------------------------------------------------------
+#
+# [Only for combined] Combine annotations from different sources
+# NOTE: the purpose of this step is to find the consensus of annotations across different resources
+#
+# -----------------------------------------------------------------------------------------
+# NOTE: [Cannot run for multiple times!!] need to make sure res_dir points to combined
+if ref == "combined":
+    adata_merfish_ref1 = sc.read_h5ad(f"../results_merfish/results_{dataset}_proseg/annot_{nsamples_scanvi}_ref1/scanvi/adata_merfish.h5ad")
+    # TODO: probably need to retrain the model since lymphoid subtype annotation is not accurate in pub dataset.
+    adata_merfish_ref2 = sc.read_h5ad(f"../results_merfish/results_{dataset}_proseg/annot_{nsamples_scanvi}_ref2/scanvi/adata_merfish.h5ad")
+    adata_merfish_combined = sc.read_h5ad(f"../results_merfish/results_{dataset}_proseg/annot_{nsamples_scanvi}_combined/scanvi/adata_merfish.h5ad")
+    adata_merfish.obs["annot_ref1"] = adata_merfish_ref1.obs[SCANVI_PREDICTIONS_KEY].astype(object)
+    adata_merfish.obs["annot_ref2"] = adata_merfish_ref2.obs[SCANVI_PREDICTIONS_KEY].astype(object)
 
-# Visualization using predicted annotation
-sc.pl.umap(adata_merfish, color=["sample", SCANVI_PREDICTIONS_KEY], frameon=False, ncols=1)
-# plot cell type on UMAP space
-# plot cell type 
-fig = utils.plot_by_batch(adata_merfish.obsm["X_umap"], annos = np.array([x for x in adata_merfish.obs[SCANVI_PREDICTIONS_KEY].values]), 
-                          batches = np.array([x for x in adata_merfish.obs["sample"].values]), figsize = (10, 4), ncols = 2, s = 5, alpha = 0.4, markerscale = 5)
-fig.savefig(res_dir + "umap_scanvi_merfish.pdf", bbox_inches = "tight")
+    # unify the annotation
+    # adata_merfish.obs.loc[adata_merfish.obs["annot_ref2"].isin(["Imm_B", "Imm_NK", "Imm_Tcell"]), "annot_ref2"] = "Lymphoid"
+    # adata_merfish.obs.loc[adata_merfish.obs["annot_ref2"].isin(["Imm_Macrophage"]), "annot_ref2"] = "Macrophage"
+    # adata_merfish.obs.loc[adata_merfish.obs["annot_ref2"].isin(["Imm_DC"]), "annot_ref2"] = "DC"    
+    adata_merfish.obs.loc[adata_merfish.obs["annot_ref1"].isin(["Luminal (Spink1+)"]), "annot_ref1"] = "Luminal"
+    adata_merfish.obs["annot_comb"] = adata_merfish_combined.obs[SCANVI_PREDICTIONS_KEY]
+
+    adata_merfish.obs["annot_ref1"] = adata_merfish.obs["annot_ref1"].astype("category")
+    adata_merfish.obs["annot_ref2"] = adata_merfish.obs["annot_ref2"].astype("category")
+    adata_merfish.obs["annot_comb"] = adata_merfish.obs["annot_comb"].astype("category")
+    adata_merfish.obs["annot_ref1"] = adata_merfish.obs["annot_ref1"].cat.set_categories(adata_merfish.obs["annot_comb"].cat.categories)
+    adata_merfish.obs["annot_ref2"] = adata_merfish.obs["annot_ref2"].cat.set_categories(adata_merfish.obs["annot_comb"].cat.categories)
+
+    del adata_merfish_ref1, adata_merfish_ref2, adata_merfish_combined
+
+    # compare annotations 
+    fig = utils.plot_embeds(adata_merfish.obsm["X_scanvi_umap"], annos = adata_merfish.obs[["annot_ref1", "annot_ref2", "annot_comb"]],
+                             figsize = (12, 6), ncols = 3, s = 1, alpha = 0.3, markerscale = 10)
+    fig.savefig(res_dir + "compare_annot.png", bbox_inches = "tight", dpi = 150)
+    
+    # calculate confusion matrix
+    # 1. combine with ref1
+    conf_mtx1 = confusion_matrix(y_true = np.array([x for x in adata_merfish.obs["annot_comb"]]), y_pred = np.array([x for x in adata_merfish.obs["annot_ref1"]]), labels = adata_merfish.obs["annot_comb"].cat.categories)
+    conf_mtx1 = pd.DataFrame(data = conf_mtx1.astype(int), index = adata_merfish.obs["annot_comb"].cat.categories, columns = adata_merfish.obs["annot_comb"].cat.categories)
+
+    # 1. combine with ref2
+    conf_mtx2 = confusion_matrix(y_true = np.array([x for x in adata_merfish.obs["annot_comb"]]), y_pred = np.array([x for x in adata_merfish.obs["annot_ref2"]]), labels = adata_merfish.obs["annot_comb"].cat.categories)
+    conf_mtx2 = pd.DataFrame(data = conf_mtx2.astype(int), index = adata_merfish.obs["annot_comb"].cat.categories, columns = adata_merfish.obs["annot_comb"].cat.categories)
+
+    fig = plt.figure(figsize = (20 * 2, 16))
+    ax = fig.subplots(nrows = 1, ncols = 2)
+    sns.heatmap(conf_mtx1 + 1e-4, norm=LogNorm(), annot = True, ax = ax[0])
+    ax[0].set_xlabel("Ref1", fontsize = 20)
+    ax[0].set_ylabel("Combined", fontsize = 20)
+    ax[0].set_title("Combined & Ref1", fontsize = 25)
+
+    sns.heatmap(conf_mtx2 + 1e-4, norm=LogNorm(), annot = True, ax = ax[1])
+    ax[1].set_xlabel("Ref2", fontsize = 20)
+    ax[1].set_ylabel("Combined", fontsize = 20)
+    ax[1].set_title("Combined & Ref2", fontsize = 25)
+
+    fig.savefig(res_dir + "confusion_matrix.png", bbox_inches = "tight", dpi = 150)
+
+    # filter inconsistent annotations, except for Club epithelia, Monoctyes, Str_Glial, Str_SmoothMuscle that do not exist in all clusters 
+    adata_merfish.obs["annot_comb"] = adata_merfish.obs["annot_comb"].astype(object)
+    for cell_id in adata_merfish.obs.index.values:
+        if not adata_merfish.obs.loc[cell_id, "annot_comb"] == adata_merfish.obs.loc[cell_id, "annot_ref1"] == adata_merfish.obs.loc[cell_id, "annot_ref2"]:
+            if (adata_merfish.obs.loc[cell_id, "annot_comb"] != "Club epithelia") & (adata_merfish.obs.loc[cell_id, "annot_comb"] != "Monocytes")\
+                & (adata_merfish.obs.loc[cell_id, "annot_comb"] != "Str_Glial") & (adata_merfish.obs.loc[cell_id, "annot_comb"] != "Str_SmoothMuscle"):
+                adata_merfish.obs.loc[cell_id, "annot_comb"] = "Unknown"
+    
+    adata_merfish.obs["annot_comb"] = adata_merfish.obs["annot_comb"].astype("category") 
+
+    # filtering and remove unknown cells
+    adata_merfish = adata_merfish[adata_merfish.obs["annot_comb"] != "Unknown",:]
+    fig = utils.plot_embeds(adata_merfish.obsm["X_scanvi_umap"], annos = adata_merfish.obs[["annot_comb"]],
+                             figsize = (12, 6), s = 1, alpha = 0.3, markerscale = 10)
+    
+    fig.savefig(res_dir + "annot_consensus.png", bbox_inches = "tight", dpi = 150)
+    # update the prediction key to be filtered version
+    SCANVI_PREDICTIONS_KEY = "annot_comb"
+
+    # save the filtered adata
+    adata_merfish.write_h5ad(res_dir + "scanvi/adata_merfish_combfilter.h5ad")
+
+
+# In[]
+# -----------------------------------------------------------------------------------------
+#
+# NOTE: Visualize the spatial location of the predicted cell types
+#
+# -----------------------------------------------------------------------------------------
+plt.ioff()
+# cts = ["Lymphoid", "Macrophage", "Monocytes", "Luminal (Spink1+)", "Luminal", "Endothelial", "Basal", "Club epithelia", "Mesenchymal"]
+adata_merfish_pp = adata_merfish[adata_merfish.obs["genotype"] == "PbCre(+/-),Pten(-/-),P53(-/-)"]
+adata_merfish_ppc = adata_merfish[adata_merfish.obs["genotype"] == "PbCre(+/-),Pten(-/-),P53(-/-),CXCR7(-/-)"]
+
+cts = [x for x in adata_merfish.obs[SCANVI_PREDICTIONS_KEY].cat.categories if x != "SV"]
+ct_df = pd.DataFrame(columns = cts, index = adata_merfish.obs.index, data = "0. Other")
+for ct in cts:
+    ct_df.loc[adata_merfish.obs[SCANVI_PREDICTIONS_KEY] == ct, ct] = f"1. {ct}"
+    ct_df[ct] = ct_df[ct].astype("category")
+cmap2colors = ListedColormap(colors = ["#e0e0e0", "#68228b"])
 
 fig = utils.plot_embeds(adata_merfish_pp.obsm["spatial"], annos = adata_merfish_pp.obs[[SCANVI_PREDICTIONS_KEY]], figsize = (25, 13), s = 1, alpha = 0.4, markerscale = 15)
-fig.savefig(res_dir + "spatial_scanvi_merfish_pp.pdf", bbox_inches = "tight")
+fig.savefig(res_dir + "spatial_scanvi_merfish_pp.png", bbox_inches = "tight", dpi = 150)
+fig = utils.plot_embeds(adata_merfish_pp.obsm["spatial"], annos = ct_df.loc[adata_merfish_pp.obs.index.values,:], figsize = (10, 6), s = 1, alpha = 0.2, markerscale = 15, colormap = cmap2colors, ncols = 3)
+fig.savefig(res_dir + "spatial_scanvi_merfish_pp_ct.png", bbox_inches = "tight", dpi = 150)
 fig = utils.plot_embeds(adata_merfish_ppc.obsm["spatial"], annos = adata_merfish_ppc.obs[[SCANVI_PREDICTIONS_KEY]], figsize = (25, 13), s = 1, alpha = 0.4, markerscale = 15)
-fig.savefig(res_dir + "spatial_scanvi_merfish_ppc.pdf", bbox_inches = "tight")
+fig.savefig(res_dir + "spatial_scanvi_merfish_ppc.png", bbox_inches = "tight", dpi = 150)
+fig = utils.plot_embeds(adata_merfish_ppc.obsm["spatial"], annos = ct_df.loc[adata_merfish_ppc.obs.index.values,:], figsize = (10, 6), s = 1, alpha = 0.2, markerscale = 15, colormap = cmap2colors, ncols = 3)
+fig.savefig(res_dir + "spatial_scanvi_merfish_ppc_ct.png", bbox_inches = "tight", dpi = 150)
 
 
 # In[]
 # -----------------------------------------------------------------------------------------
 #
-# NOTE: Downstream 2: Plot marker gene expression heatmap on UMAP and spatial
+# NOTE: Plot marker gene expression
 #
 # -----------------------------------------------------------------------------------------
+# plt.ioff()
 
-import matplotlib.pyplot as plt
+samples = adata_merfish.obs["sample"].cat.categories
+
+# NOTE: Sanity check: markers for the correctness of coarse level annotations
 for ct, marker in markers.items():
+# for marker in [["Il6", "Ifng"]]:
+    # ct = "il6_ifng"    
     nrows = len(marker)
-    fig = plt.figure(figsize = (10 * 2, 7 * nrows))
-    ax = fig.subplots(nrows = nrows, ncols = 2)
     # adata_intact is already log-normalized
-    for idx, gene in enumerate(marker):
-        vmax = np.max(adata_merfish[:, gene].X)
-        vmin = 0.0
-        ax[idx,0] = sc.pl.umap(adata_merfish[adata_merfish.obs["sample"] == "Merfish-PP15", :], color = gene, color_map = utils.SUPER_MAGMA, ax = ax[idx,0], show = False, vmin = vmin, vmax = vmax)
-        ax[idx,1] = sc.pl.umap(adata_merfish[adata_merfish.obs["sample"] == "Merfish-PPC15", :], color = gene, color_map = utils.SUPER_MAGMA, ax = ax[idx,1], show = False, vmin = vmin, vmax = vmax)
-        ax[idx,0].set_title(f"{gene} PP15", fontsize = 35)
-        ax[idx,1].set_title(f"{gene} PPC15", fontsize = 35)
+    # spatial level
+    gene_expr = pd.DataFrame(data = np.log1p(adata_merfish[:, marker].X.toarray()), columns = marker, index = adata_merfish.obs.index.values.squeeze())
+    vmax = [np.max(gene_expr[x].squeeze()) for x in marker]
+    for sample in samples:
+        fig = utils.plot_embeds(adata_merfish[adata_merfish.obs["sample"] == sample, :].obsm["X_scanvi_umap"], 
+                                annos = adata_merfish[adata_merfish.obs["sample"] == sample, :].obs[[SCANVI_PREDICTIONS_KEY]], figsize = (13,6), s = 2, markerscale = 10)
+        fig.suptitle(sample, fontsize = 35)
+        fig.savefig(res_dir + f"plots_marker/{sample}_umap.png", bbox_inches = "tight", dpi = 150)
 
-    fig.tight_layout()
-    plt.show()
-    fig.savefig(res_dir + f"{ct}_marker_umap.pdf", bbox_inches = "tight")
+        fig = utils.plot_embeds_continuous(adata_merfish[adata_merfish.obs["sample"] == sample, :].obsm["spatial"], 
+                                                    annos = gene_expr.loc[adata_merfish.obs["sample"] == sample, :],
+                                                    colormap = utils.SUPER_MAGMA, vmax = vmax, figsize = (10,6), ncols = 2, s = 2)
+        fig.suptitle(sample, fontsize = 35)
+        fig.savefig(res_dir + f"plots_marker/{ct}_marker_{sample}_spatial.png", bbox_inches = "tight", dpi = 150)
 
-X_umap = adata_merfish.obsm["X_umap"].copy()
-adata_merfish.obsm["X_umap"] = adata_merfish.obsm["spatial"]
-import matplotlib.pyplot as plt
-for ct, marker in markers.items():
-    nrows = len(marker)
-    fig = plt.figure(figsize = (10 * 2, 7 * nrows))
-    ax = fig.subplots(nrows = nrows, ncols = 2)
-    # adata_intact is already log-normalized
-    for idx, gene in enumerate(marker):
-        vmax = np.max(adata_merfish[:, gene].X)
-        vmin = 0.0
-        ax[idx,0] = sc.pl.umap(adata_merfish[adata_merfish.obs["sample"] == "Merfish-PP15", :], color = gene, color_map = utils.SUPER_MAGMA, ax = ax[idx,0], show = False, vmin = vmin, vmax = vmax)
-        ax[idx,1] = sc.pl.umap(adata_merfish[adata_merfish.obs["sample"] == "Merfish-PPC15", :], color = gene, color_map = utils.SUPER_MAGMA, ax = ax[idx,1], show = False, vmin = vmin, vmax = vmax)
-        ax[idx,0].set_title(f"{gene} PP15", fontsize = 35)
-        ax[idx,1].set_title(f"{gene} PPC15", fontsize = 35)
-
-    fig.tight_layout()
-    plt.show()
-    fig.savefig(res_dir + f"{ct}_marker_spatial.pdf", bbox_inches = "tight")
-
-adata_merfish.obsm["X_umap"] = X_umap
-
+    # umap level
+    for sample in samples:
+        fig = utils.plot_embeds_continuous(adata_merfish[adata_merfish.obs["sample"] == sample, :].obsm["X_scanvi_umap"], 
+                                                    annos = gene_expr.loc[adata_merfish.obs["sample"] == sample, :],
+                                                    colormap = utils.SUPER_MAGMA, vmax = vmax, figsize = (10,6), ncols = 2, s = 2)
+        fig.suptitle(sample, fontsize = 35)
+        fig.savefig(res_dir + f"plots_marker/{ct}_marker_{sample}_umap.png", bbox_inches = "tight", dpi = 150)
 
 # In[]
 # -----------------------------------------------------------------------------------------
 #
-# NOTE: Downtream 3: Analysis on cell type composition
+# NOTE: Analysis on cell type composition
 #
 # -----------------------------------------------------------------------------------------
-# Count cell type composition
-annos_immune_pp = np.array([x for x in adata_merfish_pp.obs[SCANVI_PREDICTIONS_KEY]])
-annos_immune_pp = np.where((annos_immune_pp == "Endothelial") | (annos_immune_pp == "SV"), "Other", annos_immune_pp)
-annos_immune_ppc = np.array([x for x in adata_merfish_ppc.obs[SCANVI_PREDICTIONS_KEY]])
-annos_immune_ppc = np.where((annos_immune_ppc == "Endothelial") | (annos_immune_ppc == "SV"), "Other", annos_immune_ppc)
+# Count cell type composition, coarse level
+# SCANVI_PREDICTIONS_KEY = "annot_comb"
+annos_pp = np.array([x for x in adata_merfish_pp.obs[SCANVI_PREDICTIONS_KEY]])
+annos_ppc = np.array([x for x in adata_merfish_ppc.obs[SCANVI_PREDICTIONS_KEY]])
+# NOTE: remove SV cells 
+annos_pp = annos_pp[annos_pp != "SV"]
+annos_ppc = annos_ppc[annos_ppc != "SV"]
 
-ct_pp, ct_count_pp = np.unique(annos_immune_pp, return_counts = True)
+ct_pp, ct_count_pp = np.unique(annos_pp, return_counts = True)
 ct_pct_pp = ct_count_pp/np.sum(ct_count_pp)
-ct_ppc, ct_count_ppc = np.unique(annos_immune_ppc, return_counts = True)
+ct_ppc, ct_count_ppc = np.unique(annos_ppc, return_counts = True)
 ct_pct_ppc = ct_count_ppc/np.sum(ct_count_ppc)
 
-unique_ct = ["Luminal", "Basal", "Monocytes", "Lymphoid", "Macrophage", "Luminal (Spink1+)", "Mesenchymal", "Club epithelia", "Other"]
-count_ct = pd.DataFrame(data = 0.0, index = unique_ct, columns = ["PP (15wk)", "PPC (15wk)"])
-count_ct.loc[ct_pp, "PP (15wk)"] = ct_count_pp
-count_ct.loc[ct_pp, "PPC (15wk)"] = ct_count_ppc
+unique_ct = np.union1d(ct_pp, ct_ppc)
+count_ct = pd.DataFrame(data = 0.0, index = unique_ct, columns = [f"PP ({dataset})", f"PPC ({dataset})"])
+count_ct.loc[ct_pp, f"PP ({dataset})"] = ct_count_pp
+count_ct.loc[ct_pp, f"PPC ({dataset})"] = ct_count_ppc
 
-pct_ct = pd.DataFrame(data = 0.0, index = unique_ct, columns = ["PP (15wk)", "PPC (15wk)"])
-pct_ct.loc[ct_pp, "PP (15wk)"] = ct_pct_pp
-pct_ct.loc[ct_pp, "PPC (15wk)"] = ct_pct_ppc
-
-count_ct.to_csv(res_dir + "count_ct.csv")
-pct_ct.to_csv(res_dir + "pct_ct.csv")
-
-# NOTE: Combine the immune cell, for ease of pie chart plot
-count_ct.loc["Immune", :] = count_ct.loc["Lymphoid", :].values + count_ct.loc["Macrophage", :].values + count_ct.loc["Monocytes", :].values
-count_ct = count_ct.drop(["Lymphoid", "Macrophage", "Monocytes"], axis = 0)
-pct_ct.loc["Immune", :] = pct_ct.loc["Lymphoid", :].values + pct_ct.loc["Macrophage", :].values + pct_ct.loc["Monocytes", :].values
-pct_ct = pct_ct.drop(["Lymphoid", "Macrophage", "Monocytes"], axis = 0)
+pct_ct = pd.DataFrame(data = 0.0, index = unique_ct, columns = [f"PP ({dataset})", f"PPC ({dataset})"])
+pct_ct.loc[ct_pp, f"PP ({dataset})"] = ct_pct_pp
+pct_ct.loc[ct_pp, f"PPC ({dataset})"] = ct_pct_ppc
 
 plt.rcParams["font.size"] = 10
 fig = plt.figure(figsize = (20,10))
 axs = fig.subplots(nrows = 1, ncols = 2)
-axs[0].pie(pct_ct["PP (15wk)"].values.squeeze(), labels = pct_ct.index.values.squeeze(), autopct='%.1f%%', pctdistance = 0.8, labeldistance = 1.1)
-axs[1].pie(pct_ct["PPC (15wk)"].values.squeeze(), labels = pct_ct.index.values.squeeze(), autopct='%.1f%%', pctdistance = 0.8, labeldistance = 1.1)
-axs[0].set_title("PP 15wk")
-axs[1].set_title("PPC 15wk")
+axs[0].pie(pct_ct[f"PP ({dataset})"].values.squeeze(), labels = pct_ct.index.values.squeeze(), autopct='%.1f%%', pctdistance = 0.8, labeldistance = 1.1)
+axs[1].pie(pct_ct[f"PPC ({dataset})"].values.squeeze(), labels = pct_ct.index.values.squeeze(), autopct='%.1f%%', pctdistance = 0.8, labeldistance = 1.1)
+axs[0].set_title(f"PP ({dataset})")
+axs[1].set_title(f"PPC ({dataset})")
 fig.suptitle("Cell percentage", fontsize = 30)
 fig.savefig(res_dir + "percent_cell.png", bbox_inches = "tight")
 
-# In[]
-# Plot the locations of the immune cells, include lymphoid, macrophage, monocytes
-immune_cmap = ListedColormap(["#FAFAFA", "#98DF8A", "#AEC7E8", "#FF9896"])
-
-annos_immune_pp = np.array([x for x in adata_merfish_pp.obs[SCANVI_PREDICTIONS_KEY]])
-annos_immune_pp = np.where((annos_immune_pp != "Lymphoid") & (annos_immune_pp != "Macrophage") & (annos_immune_pp != "Monocytes"), " ", annos_immune_pp)
-annos_immune_pp = pd.DataFrame(columns = [SCANVI_PREDICTIONS_KEY], data = annos_immune_pp[:,None])
-fig = utils.plot_embeds(adata_merfish_pp.obsm["spatial"], annos = annos_immune_pp, figsize = (25, 13), s = 1, alpha = 0.7, markerscale = 15, colormap = immune_cmap)
-fig.savefig(res_dir + "spatial_scanvi_immune_pp.pdf", bbox_inches = "tight")
-
-annos_immune_ppc = np.array([x for x in adata_merfish_ppc.obs[SCANVI_PREDICTIONS_KEY]])
-annos_immune_ppc = np.where((annos_immune_ppc != "Lymphoid") & (annos_immune_ppc != "Macrophage") & (annos_immune_ppc != "Monocytes"), " ", annos_immune_ppc)
-annos_immune_ppc = pd.DataFrame(columns = [SCANVI_PREDICTIONS_KEY], data = annos_immune_ppc[:,None])
-fig = utils.plot_embeds(adata_merfish_ppc.obsm["spatial"], annos = annos_immune_ppc, figsize = (25, 13), s = 1, alpha = 0.7, markerscale = 15, colormap = immune_cmap)
-fig.savefig(res_dir + "spatial_scanvi_immune_ppc.pdf", bbox_inches = "tight")
-
-# In[]
-# --------------------------------------------------------------------------------
-#
-# NOTE: Downstream 4: Immune sub-type detection in space, assuming the lymphoid macrophage annotations are correct
-#
-# --------------------------------------------------------------------------------
-if not os.path.exists(res_dir + "immune_subtypes/"):
-    os.makedirs(res_dir + "immune_subtypes/")
-
-three_cat = ListedColormap(["#FAFAFA", "#FF9896", "#AEC7E8"])
-
-# NOTE: the markers used for immune subtype detection should be the same as the ones used in scRNA-seq and visium
-markers_lymphoid = {}
-# markers_lymphoid["lymphoid"] = ["Cd3e"]#, "Ms4a1", "Klrb1c"]
-markers_lymphoid["CD4_T"] = ["Cd4"]
-markers_lymphoid["CD8_T"] = ["Cd8a"]
-markers_lymphoid["cytotoxicity T"] = ["Gzmb", "Prf1"]
-markers_lymphoid["exhausted T"] = ["Tigit", "Havcr2"]
-markers_lymphoid["NK"] = ["Klrd1"]
-markers_lymphoid["B"] = ["Ms4a1"]
-
-markers_macrophage = {}
-# markers_macrophage["macrophage"] = ["Itgam", "Adgre1"]
-# markers_macrophage["macrophage_m1"] = ["Cd80", "Cd86", "Nos2", "Tnf", "Il1b", "Il6", "Cxcl10"]
-# markers_macrophage["macrophage_m2"] = ["Cd163", "Arg1", "Mrc1", "Il10"]
-markers_macrophage["macrophage_m1"] = ["Cd80", "Cd86"]
-markers_macrophage["macrophage_m2"] = ["Cd163", "Arg1", "Mrc1"]
-
-markers_immune = {"Lymphoid": markers_lymphoid, "Macrophage": markers_macrophage}
-
-# NOTE: calculate the percentage of immune cells expressing subtype markers
-for subtype, markers in markers_immune.items():
-    # Lymphoid and Macrophage
-    for ct in markers.keys():
-        # PP15
-        marker_exprs = pd.DataFrame(index = adata_merfish_pp.obs.index.values)
-        for gene in markers[ct]:
-            # NOTE: the expression is already log-normed, see loading
-            marker_expr = adata_merfish_pp[:,gene].X.toarray().squeeze()
-            # binarize the expression value
-            marker_bin = np.where(marker_expr > 0, "2. expr", "3. not expr")
-            # set the expression of remaining cell types to be 0, remove confounders
-            marker_bin[(adata_merfish_pp.obs[SCANVI_PREDICTIONS_KEY] != subtype).values.squeeze()] = "1. other"
-            print(np.unique(marker_bin, return_counts = True))
-            marker_exprs[gene] = marker_bin
-        # Plot the spatial location of markers
-        fig = utils.plot_embeds(embed = adata_merfish_pp.obsm["spatial"], annos = marker_exprs, colormap = three_cat, alpha = 1, s = 20, markerscale = 3)
-        fig.suptitle(ct, fontsize = 25)
-        fig.savefig(res_dir + f"immune_subtypes/{ct}_markers_pp.pdf", bbox_inches = "tight")
-        marker_exprs.to_csv(res_dir + f"immune_subtypes/bin_{ct}_markers_pp.csv")
-
-        # PPC15
-        marker_exprs = pd.DataFrame(index = adata_merfish_ppc.obs.index.values)
-        for gene in markers[ct]:
-            # NOTE: the expression is already log-normed
-            marker_expr = adata_merfish_ppc[:,gene].X.toarray().squeeze()
-            # binarize the expression value
-            marker_bin = np.where(marker_expr > 0, "2. expr", "3. not expr")
-            # set the expression of remaining cell types to be 0, remove confounders
-            marker_bin[(adata_merfish_ppc.obs[SCANVI_PREDICTIONS_KEY] != subtype).values.squeeze()] = "1. other"
-            print(np.unique(marker_bin, return_counts = True))
-            marker_exprs[gene] = marker_bin
-        # Plot the spatial location of markers
-        fig = utils.plot_embeds(embed = adata_merfish_ppc.obsm["spatial"], annos = marker_exprs, colormap = three_cat, alpha = 1, s = 20, markerscale = 3)
-        fig.suptitle(ct, fontsize = 25)
-        fig.savefig(res_dir + f"immune_subtypes/{ct}_markers_ppc.pdf", bbox_inches = "tight")
-        marker_exprs.to_csv(res_dir + f"immune_subtypes/bin_{ct}_markers_ppc.csv")
-
-# In[]
-# NOTE: plot the pie chart of subtype composition, Lymphoid and Macrophage
-for subtype, markers in markers_immune.items():
-    for ct in markers.keys():
-        pct_pos_df = pd.DataFrame(columns = ["PP 15wk", "PPC 15wk"], index = ["Pos", "Neg"], data = 0)
-        marker_exprs = pd.read_csv(res_dir + f"immune_subtypes/bin_{ct}_markers_pp.csv", index_col = 0)
-        # number of lymphoid cells
-        num_total = (adata_merfish_pp.obs[SCANVI_PREDICTIONS_KEY] == subtype).values.squeeze().sum()
-        # NOTE: here we use "or" instead of "and" in scRNA-seq, because "and" will filter out almost all cells in multi-marker cases
-        # Merfish data is extremely shallow
-        idx_pos = np.zeros((marker_exprs.shape[0],))
-        for gene in marker_exprs.columns:
-            idx_pos += np.where(marker_exprs[gene] == "2. expr", 1, 0) 
-        num_pos = np.sum(idx_pos > 0)
-        pct_pos_df.loc["Pos", "PP 15wk"] = num_pos
-        pct_pos_df.loc["Neg", "PP 15wk"] = num_total - num_pos
-
-        marker_exprs = pd.read_csv(res_dir + f"immune_subtypes/bin_{ct}_markers_ppc.csv", index_col = 0)
-        # number of lymphoid cells
-        num_total = (adata_merfish_ppc.obs[SCANVI_PREDICTIONS_KEY] == subtype).values.squeeze().sum()
-        idx_pos = np.zeros((marker_exprs.shape[0],))
-        for gene in marker_exprs.columns:
-            idx_pos += np.where(marker_exprs[gene] == "2. expr", 1, 0) 
-        num_pos = np.sum(idx_pos > 0)
-        pct_pos_df.loc["Pos", "PPC 15wk"] = num_pos
-        pct_pos_df.loc["Neg", "PPC 15wk"] = num_total - num_pos
-        pct_pos_df.to_csv(res_dir + f"immune_subtypes/{ct}_pct.csv")
-
-
-        plt.rcParams["font.size"] = 10
-        fig = plt.figure(figsize = (20,10))
-        axs = fig.subplots(nrows = 1, ncols = 2)
-        axs[0].pie(pct_pos_df["PP 15wk"].values.squeeze(), labels = pct_pos_df.index.values.squeeze(), autopct='%.1f%%', pctdistance = 0.8, labeldistance = 1.1)
-        axs[1].pie(pct_pos_df["PPC 15wk"].values.squeeze(), labels = pct_pos_df.index.values.squeeze(), autopct='%.1f%%', pctdistance = 0.8, labeldistance = 1.1)
-        axs[0].set_title("PP 15wk")
-        axs[1].set_title("PPC 15wk")
-        fig.suptitle(f"{ct} percentage", fontsize = 30)
-        fig.savefig(res_dir + f"immune_subtypes/{ct}_pct.png", bbox_inches = "tight")
-
 # %%
-# # -----------------------------------------------------------------------------------------
-# #
-# # Label transfer -- scArches
-# # align the query dataset with the reference dataset
-# #
-# # -----------------------------------------------------------------------------------------
-# scvi_ref_path = res_dir + "scvi_reference"
-# scvi.model.SCVI.prepare_query_anndata(adata_merfish_pp, scvi_ref_path)
-# scvi_query_pp = scvi.model.SCVI.load_query_data(adata_merfish_pp, scvi_ref_path)
-# # NOTE: weight_decay to 0 to prevent the model from updating the latent embedding of the reference dataset
-# scvi_query_pp.train(max_epochs=200, plan_kwargs={"weight_decay": 0.0})
-
-
-# scvi.model.SCVI.prepare_query_anndata(adata_merfish_ppc, scvi_query_pp)
-# scvi_query_ppc = scvi.model.SCVI.load_query_data(adata_merfish_ppc, scvi_query_pp)
-# # NOTE: weight_decay to 0 to prevent the model from updating the latent embedding of the reference dataset
-# scvi_query_ppc.train(max_epochs=200, plan_kwargs={"weight_decay": 0.0})
-
-# scvi_query_ppc.save(res_dir + "scvi_final", overwrite = True)
-
-
-# # In[]
-# SCVI_LATENT_KEY = "X_scVI"
-# adata_full = anndata.concat([adata_ref, adata_merfish_pp, adata_merfish_ppc])
-# adata_full.obsm[SCVI_LATENT_KEY] = scvi_query_ppc.get_latent_representation(adata_full)
-
-# sc.pp.neighbors(adata_full, use_rep=SCVI_LATENT_KEY)
-# sc.tl.umap(adata_full)
-
-# sc.pl.umap(adata_full, color=["sample", "annot"], frameon=False, ncols=1)
-# utils.plot_latent(adata_full.obsm["X_umap"], annos = np.array([x for x in adata_full.obs["annot"].values]), batches = np.array([x for x in adata_full.obs["sample"].values]), mode = "separate", figsize = (10, 25))
